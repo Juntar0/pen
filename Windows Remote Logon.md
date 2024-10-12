@@ -15,3 +15,9 @@ requirements
 ```
 impacket-psexec DOMAIN/USER@IP
 ```
+
+# RDP
+password logon
+```
+xfreerdp /u:USER /p:PASS /v:192.168.0.0
+```

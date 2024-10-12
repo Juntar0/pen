@@ -8,3 +8,6 @@ force a policy update
 ```
 gpupdate /force
 ```
+
+## godpotato
+SeImpersonatePrivilege

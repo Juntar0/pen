@@ -2,7 +2,7 @@
 ## setup
 create a tun interface
 ```
-sudo ip tuntap add user [your_username] mode tun ligolo
+sudo ip tuntap add user kali mode tun ligolo
 sudo ip link set ligolo up
 ```
 
@@ -13,10 +13,11 @@ sudo ip link set ligolo up
 
 ## agent
 ```
-agent.exe -connect 192.168.45.232:9001 -ignore-cert
+./agent.exe -connect 192.168.45.171:9001 -ignore-cert
 ```
 
 ## Connected
+proxy
 ```
 session
 start
@@ -25,4 +26,9 @@ start
 # LocalPort Forwarding Only
 ```
 sudo ip route add 240.0.0.1/32 ligolo
+```
+
+# Pivot
+```
+sudo ip route add CIDR/24 ligolo
 ```
