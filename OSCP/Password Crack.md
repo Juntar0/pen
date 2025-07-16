@@ -55,3 +55,10 @@ find hash type
 ```
 hashcat --help | grep -i "keyword"
 ```
+
+## crunch
+generating a wordlist( min length:6, max length:6)
+```
+crunch 6 6 -t Lab%%% > wordlist
+```
+
