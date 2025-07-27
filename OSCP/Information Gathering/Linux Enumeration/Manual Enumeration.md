@@ -177,3 +177,16 @@ sudo capabilitis
 ```
 sudo -l
 ```
+
+## git
+find .git file
+
+execute git log
+```
+git log
+```
+
+show commit number
+```
+git show COMMIT
+```
