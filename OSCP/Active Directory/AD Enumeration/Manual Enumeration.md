@@ -126,6 +126,14 @@ download
 https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/refs/heads/master/Recon/PowerView.ps1
 ```
 
+```
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
+```
+
+```
+powershell -ep bypass
+```
+
 Import
 ```
 Import-Module .\PowerView.ps1
@@ -316,4 +324,19 @@ Find-LocalAdminAccess -ComputerName (Get-Content .\hosts.txt)
 Similar checks using `nxc smb`
 ```
 nxc smb ip.txt -u USER -p PASS -d DOMAIN --continue-on-success
+```
+
+# Find Vulnerable GPO
+ check for the permissions our current user have over the GPONAME
+```
+import-module .\PowerView.ps1
+Get-NetGPO | select displayname
+Get-GPO -Name "GPONAME"
+Get-GPPermission -Guid ID -TargetType User -TargetName USERNAME
+```
+
+ref:
+```
+https://medium.com/@raphaeltzy13/group-policy-object-gpo-abuse-windows-active-directory-privilege-escalation-51d8519a13d7
+https://bit-bandits.com/sharpgpoabuse.html
 ```

