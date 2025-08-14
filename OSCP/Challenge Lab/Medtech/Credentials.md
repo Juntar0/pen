@@ -3,4 +3,8 @@ user:password
 joe:Flowers1
 Administrator:b2c03054c306ac8fc5f9d188710b0168
 MSSQL$SQLEXPRESS:ef4a48d6a1ba49f0036d41dc0dc61307
+daisy:abf36048c1cf88f5603381c5128feb8e
+toad:5be63a865b65349851c1f11a067a3068
+wario:fdf36048c1cf88f5630381c5e38feb8e
+goomba:8e9e1516818ce4e54247e71e71b5f436
 ```
