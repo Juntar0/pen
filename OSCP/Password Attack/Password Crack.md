@@ -9,6 +9,11 @@ hashid
 hashid 'HASH'
 ```
 
+# crackstation
+**Supports:** LM, NTLM, md2, md4, md5, md5(md5_hex), md5-half, sha1, sha224, sha256, sha384, sha512, ripeMD160, whirlpool, MySQL 4.1+ (sha1(sha1_bin)), QubesV3.1BackupDefaults
+```
+https://crackstation.net/
+```
 # John the Ripper
 ## john
 password crack command
@@ -48,7 +53,7 @@ sudo hashcat -m 0 test.hash /usr/share/wordlists/rockyou.txt -r /usr/share/hashc
 ## crack mode
 NTLM
 ```
-sudo hashcat -m 1000 adrian.hash /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force
+sudo hashcat -m 1000 ntlm.hash /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force
 ```
 
 NTLM-v2
@@ -58,7 +63,7 @@ sudo hashcat -m 5600 paul.hash /usr/share/wordlists/rockyou.txt --force
 
 AS-REP ([[../Active Directory/Authentication Attacks|Authentication Attacks]])
 ```
-sudo hashcat -m 18200 hash.asreproast /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force
+sudo hashcat -m 18200 asreproast.hash /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force
 ```
 
 TGS-REP ([[../Active Directory/Authentication Attacks|Authentication Attacks]]
