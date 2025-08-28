@@ -41,18 +41,18 @@ whatewb IP
 
 Scanning the target
 ```
-wpscan --url URL
+wpscan --url URL --no-update
 ```
 
 Active Enumeration 
 all plugin
 ```
-wpscan --url URL --enumerate ap --plugins-detection aggressive --api-token TOKEN
+wpscan --url URL --enumerate ap --plugins-detection aggressive --api-token TOKEN --no-update
 ```
 
 all theme
 ```
-wpscan --url URL --enumerate at --plugins-detection aggressive --api-token TOKEN
+wpscan --url URL --enumerate at --plugins-detection aggressive --api-token TOKEN --no-update
 ```
 
 ## API Enumration

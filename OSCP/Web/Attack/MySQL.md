@@ -20,6 +20,7 @@ help
 ```
 mysql --help
 ```
+
 # commands
 version info
 ```
@@ -40,3 +41,6 @@ user's password
 ```
 SELECT User, Host, authentication_string FROM mysql.user;
 ```
+
+# post-exploitation
+https://hackviser.com/tactics/pentesting/services/mysql#common-mysql-commands

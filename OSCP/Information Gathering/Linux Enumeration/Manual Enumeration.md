@@ -56,6 +56,11 @@ monitoring running processes
 watch -n 1 "ps -aux | grep pass"
 ```
 
+pspy
+```
+wget https://github.com/DominicBreuker/pspy/releases/download/v1.2.0/pspy64
+```
+
 ## network
 full tcp/ip configuration on all available dapters
 ```
