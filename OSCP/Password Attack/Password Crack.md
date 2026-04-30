@@ -58,7 +58,7 @@ sudo hashcat -m 1000 ntlm.hash /usr/share/wordlists/rockyou.txt -r /usr/share/ha
 
 NTLM-v2
 ```
-sudo hashcat -m 5600 paul.hash /usr/share/wordlists/rockyou.txt --force
+sudo hashcat -m 5600 ntlmv2.hash /usr/share/wordlists/rockyou.txt --force
 ```
 
 AS-REP ([[../Active Directory/Authentication Attacks|Authentication Attacks]])
