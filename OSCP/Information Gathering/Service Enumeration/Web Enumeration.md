@@ -67,3 +67,7 @@ enumeration path
 gobuster dir -u http://ip:port -w /usr/share/wordlists/dirb/common.txt -p pattern.txt
 ```
 
+# .git dump
+```
+git-dumper http://192.168.x.x/.git ./website
+```

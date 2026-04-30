@@ -27,6 +27,11 @@ onesixtyone -c community -i ips
 
 ## snmp walk
 
+v2c and get extend
+```
+snmpwalk -c pulic -v2c 192.168.x.x NET-SNMP-EXTEND-MIB::nsExtendObjects
+```
+
 host information
 ```
 snmpwalk -c public -v1 192.168.x.x 1.3.6.1.2.1.1

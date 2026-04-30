@@ -113,7 +113,7 @@ Get-ChildItem -Path C:\xampp -Include *.txt,*.ini -File -Recurse -ErrorAction Si
 
 Searching for text files and password manager databases in the home directory
 ```
-Get-ChildItem -Path C:\Users\ -Include *.ini, *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.docx -File -Recurse -ErrorAction SilentlyContinue
+Get-ChildItem -Path C:\Users\ -Include *.ini, *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.docx,*.vsb,*.ps1 -File -Recurse -ErrorAction SilentlyContinue
 ```
 
 cmd
